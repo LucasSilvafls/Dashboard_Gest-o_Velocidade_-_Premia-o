@@ -39,6 +39,8 @@ import {
   getDatasetDateBounds,
   formatTimestampsToPeriodDisplay,
   formatDatesToPeriodDisplay,
+  BonusRules,
+  DEFAULT_BONUS_RULES,
 } from '@/lib/telemetry-rules';
 import { useOperationalFilters } from '@/components/OperationalFilterBar';
 
@@ -108,6 +110,24 @@ export default function Home() {
   const [stats, setStats] = useState<TelemetrySummaryStats | null>(null);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState<boolean>(false);
+
+  // Regras de Bonificação e Parâmetros da Frota (Persistido no LocalStorage)
+  const [bonusRules, setBonusRules] = useState<BonusRules>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('csg_bonus_rules_v1');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed && typeof parsed.minHours === 'number' && parsed.baseBonus) {
+            return parsed;
+          }
+        }
+      } catch (e) {
+        console.warn('Erro ao carregar bonusRules locais:', e);
+      }
+    }
+    return DEFAULT_BONUS_RULES;
+  });
 
   // Toast notifications
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -476,11 +496,22 @@ export default function Home() {
 
   // Rule settings update
   const handleSaveRules = (minHours: number, baseBonus: string) => {
+    const updated: BonusRules = { minHours, baseBonus };
+    setBonusRules(updated);
+
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('csg_bonus_rules_v1', JSON.stringify(updated));
+      } catch (e) {
+        console.warn('Erro ao salvar bonusRules no localStorage:', e);
+      }
+    }
+
     const newLog = createAuditLogEntry(
-      `Salvar parâmetros globais: ${minHours}h mínimas, R$ ${baseBonus} bonificação`
+      `Atualização de regras globais: Carga mínima ${minHours}h/mês, Bonificação base R$ ${baseBonus}`
     );
     appendAuditLog(newLog);
-    showToast(`Parâmetros e regras propagados para os 35 veículos da frota!`);
+    showToast(`Parâmetros e regras salvos com sucesso! Bonificação: R$ ${baseBonus}`);
   };
 
   // 1. Enquanto checa sessão inicial do navegador
@@ -607,6 +638,7 @@ export default function Home() {
               drivers={driverScores}
               incidents={incidents}
               filterState={filterState}
+              bonusRules={bonusRules}
             />
           )}
 
@@ -623,6 +655,7 @@ export default function Home() {
             <AdminParamsScreen
               roadParams={roadParams}
               auditLogs={auditLogs}
+              bonusRules={bonusRules}
               onOpenRoadModal={(param) => {
                 setEditingRoadParam(param || null);
                 setIsRoadModalOpen(true);
@@ -677,6 +710,7 @@ export default function Home() {
       <DriverDetailModal
         driver={selectedDriver}
         onClose={() => setSelectedDriver(null)}
+        bonusAmount={bonusRules.baseBonus}
       />
 
       <RoadParamModal

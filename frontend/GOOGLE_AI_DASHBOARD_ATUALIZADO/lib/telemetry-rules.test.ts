@@ -14,6 +14,8 @@ import {
   formatDatesToPeriodDisplay,
   formatTimestampsToPeriodDisplay,
   isHeavyVehicleCategory,
+  parseCurrencyBR,
+  DEFAULT_BONUS_RULES,
 } from './telemetry-rules';
 import { INITIAL_DRIVERS, INITIAL_INCIDENTS } from './telemetry-data';
 
@@ -307,5 +309,31 @@ test('Table column sorting: ordenação rápida maior/menor para números, strin
   assert.equal(sortedName[1].driver, 'CLEBER');
   assert.equal(sortedName[2].driver, 'SENIVALDO');
 });
+
+test('parseCurrencyBR e DEFAULT_BONUS_RULES: converte valores monetários em formato BR para float de cálculo', () => {
+  assert.equal(DEFAULT_BONUS_RULES.minHours, 120);
+  assert.equal(DEFAULT_BONUS_RULES.baseBonus, '1.200,00');
+
+  // Valores padrão e formatados em reais
+  assert.equal(parseCurrencyBR('1.200,00'), 1200);
+  assert.equal(parseCurrencyBR('1.500,00'), 1500);
+  assert.equal(parseCurrencyBR('2.350,50'), 2350.5);
+  assert.equal(parseCurrencyBR('R$ 1.800,00'), 1800);
+  assert.equal(parseCurrencyBR('850'), 850);
+  assert.equal(parseCurrencyBR(1200), 1200);
+
+  // Casos nulos ou inválidos recorrem ao default de 1200
+  assert.equal(parseCurrencyBR(null), 1200);
+  assert.equal(parseCurrencyBR(undefined), 1200);
+  assert.equal(parseCurrencyBR(''), 1200);
+  assert.equal(parseCurrencyBR('abc'), 1200);
+
+  // Cálculo total com multiplicador de condutores aptos
+  const aptosCount = 4;
+  const customBonus = parseCurrencyBR('1.500,00');
+  const totalPrevisto = aptosCount * customBonus;
+  assert.equal(totalPrevisto, 6000);
+});
+
 
 

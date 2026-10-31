@@ -6,9 +6,10 @@ import { DriverScore } from '@/lib/telemetry-data';
 interface DriverDetailModalProps {
   driver: DriverScore | null;
   onClose: () => void;
+  bonusAmount?: string;
 }
 
-export default function DriverDetailModal({ driver, onClose }: DriverDetailModalProps) {
+export default function DriverDetailModal({ driver, onClose, bonusAmount = '1.200,00' }: DriverDetailModalProps) {
   if (!driver) return null;
 
   return (
@@ -128,7 +129,7 @@ export default function DriverDetailModal({ driver, onClose }: DriverDetailModal
             </h4>
             <p className="text-[#94a3b8] text-xs">
               {driver.status === 'APTO'
-                ? `O condutor cumpriu integralmente o teto de 80 km/h estipulado para a frota pesada, registrando velocidade de pico de ${driver.maxSpeed} km/h (margem de ${Math.abs(driver.deltaSpeed)} km/h abaixo do limite máximo). Elegível à bonificação de R$ 1.200,00.`
+                ? `O condutor cumpriu integralmente o teto de 80 km/h estipulado para a frota pesada, registrando velocidade de pico de ${driver.maxSpeed} km/h (margem de ${Math.abs(driver.deltaSpeed)} km/h abaixo do limite máximo). Elegível à bonificação de R$ ${bonusAmount}.`
                 : `O condutor ultrapassou o teto regulamentar de 80 km/h, atingindo velocidade máxima de ${driver.maxSpeed} km/h (+${driver.deltaSpeed} km/h excedentes) em ${driver.worstEventLocation}. Desclassificado para premiação no ciclo.`}
             </p>
           </div>

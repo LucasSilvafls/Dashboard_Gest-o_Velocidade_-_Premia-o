@@ -623,3 +623,26 @@ export function isHeavyVehicleCategory(category: string | null | undefined): boo
   return HEAVY_VEHICLE_CATEGORIES.some((c) => upper.includes(c));
 }
 
+export interface BonusRules {
+  minHours: number;
+  baseBonus: string;
+}
+
+export const DEFAULT_BONUS_RULES: BonusRules = {
+  minHours: 120,
+  baseBonus: '1.200,00',
+};
+
+/**
+ * Converte uma string de valor monetário em formato brasileiro (ex: '1.200,00', '1500,00', 'R$ 1.200,00')
+ * para um número float utilizável em cálculos matemáticos de premiação.
+ */
+export function parseCurrencyBR(val: string | number | null | undefined): number {
+  if (typeof val === 'number') return isNaN(val) ? 1200 : val;
+  if (!val) return 1200;
+  const clean = String(val).replace(/\./g, '').replace(',', '.').replace(/[^0-9.]/g, '');
+  const parsed = parseFloat(clean);
+  return isNaN(parsed) || parsed < 0 ? 1200 : parsed;
+}
+
+

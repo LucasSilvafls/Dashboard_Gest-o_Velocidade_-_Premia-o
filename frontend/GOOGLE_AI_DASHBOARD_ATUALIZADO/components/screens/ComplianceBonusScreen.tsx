@@ -7,7 +7,7 @@ import {
   DriverScore,
   Incident,
 } from '@/lib/telemetry-data';
-import { filterDrivers, convertToCSV, isHeavyVehicleCategory } from '@/lib/telemetry-rules';
+import { filterDrivers, convertToCSV, isHeavyVehicleCategory, BonusRules, parseCurrencyBR } from '@/lib/telemetry-rules';
 import { OperationalFilterBar, useOperationalFilters, OperationalFilterState } from '@/components/OperationalFilterBar';
 
 interface ComplianceBonusScreenProps {
@@ -15,6 +15,7 @@ interface ComplianceBonusScreenProps {
   drivers?: DriverScore[];
   incidents?: Incident[];
   filterState?: OperationalFilterState;
+  bonusRules?: BonusRules;
 }
 
 export default function ComplianceBonusScreen({
@@ -22,9 +23,13 @@ export default function ComplianceBonusScreen({
   drivers = INITIAL_DRIVERS,
   incidents = INITIAL_INCIDENTS,
   filterState: externalFilterState,
+  bonusRules,
 }: ComplianceBonusScreenProps) {
   const [filterType, setFilterType] = useState<'TODOS' | 'APTOS' | 'INAPTOS'>('TODOS');
   const [isSyncing, setIsSyncing] = useState(false);
+
+  const bonusFormatted = bonusRules?.baseBonus || '1.200,00';
+  const bonusValue = parseCurrencyBR(bonusFormatted);
 
   // Sorting state for table columns
   type DriverSortField =
@@ -272,7 +277,7 @@ export default function ComplianceBonusScreen({
       TotalAlertas: d.totalAlerts,
       ViolacoesAcima80: d.violationsAbove80,
       PiorRegistro: d.worstEventLocation,
-      ValorBonificacao: d.status === 'APTO' ? 'R$ 1.200,00' : 'R$ 0,00',
+      ValorBonificacao: d.status === 'APTO' ? `R$ ${bonusFormatted}` : 'R$ 0,00',
     }));
     const csv = convertToCSV(data);
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -998,7 +1003,7 @@ export default function ComplianceBonusScreen({
             </span>
             <strong className="text-white">
               {' '}
-              R$ {(kpis.aptosCount * 1200).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} ({kpis.aptosCount} condutores x R$ 1.200,00)
+              R$ {(kpis.aptosCount * bonusValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} ({kpis.aptosCount} condutores x R$ {bonusFormatted})
             </strong>
           </div>
         </div>
