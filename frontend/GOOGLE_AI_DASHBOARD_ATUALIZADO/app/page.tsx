@@ -65,10 +65,46 @@ function createAuditLogEntry(action: string, operator = 'Operador CCO (admin)', 
 }
 
 export default function Home() {
-  // Autenticação e Gestão de Sessão Corporativa
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [currentUser, setCurrentUser] = useState<AuthenticatedUser | null>(null);
-  const [isCheckingSession, setIsCheckingSession] = useState<boolean>(true);
+  // Autenticação e Gestão de Sessão Corporativa (Leitura instantânea de cache)
+  const [currentUser, setCurrentUser] = useState<AuthenticatedUser | null>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('csg_session_user_v1');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed && parsed.username) return parsed;
+        }
+      } catch {}
+    }
+    return null;
+  });
+
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('csg_session_user_v1');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed && parsed.username) return true;
+        }
+      } catch {}
+    }
+    return false;
+  });
+
+  const [isCheckingSession, setIsCheckingSession] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('csg_session_user_v1');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed && parsed.username) return false;
+        }
+      } catch {}
+    }
+    return true;
+  });
+
   const [isFirstAccessModalOpen, setIsFirstAccessModalOpen] = useState<boolean>(false);
 
   // Pré-carregador telemétrico: previne exibição de métricas mock ou travamentos iniciais
@@ -155,31 +191,48 @@ export default function Home() {
     });
   }, []);
 
-  // 1. Verificação de Sessão Inicial (LocalStorage + Supabase Auth)
+  // 1. Verificação de Sessão Inicial (LocalStorage + Supabase Auth com timeout de segurança)
   useEffect(() => {
     let isCancelled = false;
 
+    // Timeout de segurança absoluto: nunca deixe o usuário preso por mais de 500ms
+    const safetyTimer = setTimeout(() => {
+      if (!isCancelled) {
+        setIsCheckingSession(false);
+      }
+    }, 500);
+
     const checkInitialSession = async () => {
       try {
-        // Verificar sessão em cache local
+        // 1. Verificar sessão em cache local primeiro (instantâneo)
         if (typeof window !== 'undefined') {
           const stored = localStorage.getItem('csg_session_user_v1');
           if (stored) {
-            const parsed = JSON.parse(stored);
-            if (parsed && parsed.username) {
-              if (!isCancelled) {
+            try {
+              const parsed = JSON.parse(stored);
+              if (parsed && parsed.username && !isCancelled) {
                 setCurrentUser(parsed);
                 setIsAuthenticated(true);
+                setIsCheckingSession(false);
+                clearTimeout(safetyTimer);
                 if (parsed.primeiroAcesso) {
                   setIsFirstAccessModalOpen(true);
                 }
+                return;
               }
-            }
+            } catch {}
           }
         }
 
-        // Verificar sessão ativa no Supabase Auth
-        const { data: { session } } = await supabase.auth.getSession();
+        // 2. Verificar sessão ativa no Supabase Auth com timeout curto de 400ms para nunca travar
+        const sessionPromise = supabase.auth.getSession().catch(() => ({ data: { session: null } }));
+        const timeoutPromise = new Promise<{ data: { session: null } }>((resolve) =>
+          setTimeout(() => resolve({ data: { session: null } }), 400)
+        );
+
+        const res = await Promise.race([sessionPromise, timeoutPromise]);
+        const session = res && 'data' in res ? res.data?.session : null;
+
         if (session?.user && !isCancelled) {
           const email = session.user.email || '';
           const uname = session.user.user_metadata?.username || email.split('@')[0] || 'admincasagrande';
@@ -207,6 +260,7 @@ export default function Home() {
       } catch (err) {
         console.warn('Aviso: erro ao verificar sessão ativa:', err);
       } finally {
+        clearTimeout(safetyTimer);
         if (!isCancelled) {
           setIsCheckingSession(false);
         }
@@ -217,6 +271,7 @@ export default function Home() {
 
     return () => {
       isCancelled = true;
+      clearTimeout(safetyTimer);
     };
   }, []);
 
@@ -267,6 +322,13 @@ export default function Home() {
   useEffect(() => {
     let isCancelled = false;
 
+    // Timeout de segurança absoluto: nunca deixe o preloader telemétrico preso por mais de 3.5s
+    const safetyLoadingTimer = setTimeout(() => {
+      if (!isCancelled) {
+        setIsInitialLoading(false);
+      }
+    }, 3500);
+
     // 1. Busca rápida de estatísticas para alimentar imediatamente o preloader com dados do Supabase
     fetchTelemetrySummaryStats()
       .then((quickStats) => {
@@ -310,6 +372,7 @@ export default function Home() {
       } catch (err) {
         console.warn('Erro ao carregar dados iniciais do Supabase:', err);
       } finally {
+        clearTimeout(safetyLoadingTimer);
         if (!isCancelled) {
           setIsInitialLoading(false);
         }
@@ -318,6 +381,7 @@ export default function Home() {
 
     return () => {
       isCancelled = true;
+      clearTimeout(safetyLoadingTimer);
     };
   }, []);
 
