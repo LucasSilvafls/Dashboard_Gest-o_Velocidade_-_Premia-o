@@ -4,6 +4,7 @@ import React, { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import { uploadSpreadsheetEvents } from '@/lib/telemetry-service';
 import { Upload, FileSpreadsheet, CheckCircle2, AlertTriangle, X, ShieldAlert, Loader2 } from 'lucide-react';
+import { useTheme } from '@/lib/ThemeContext';
 
 interface UploadSpreadsheetModalProps {
   isOpen: boolean;
@@ -29,6 +30,9 @@ export default function UploadSpreadsheetModal({
   onClose,
   onUploadSuccess,
 }: UploadSpreadsheetModalProps) {
+  const { theme } = useTheme();
+  const isLight = theme === 'light';
+
   const [isDragging, setIsDragging] = useState(false);
   const [isParsing, setIsParsing] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -213,22 +217,52 @@ export default function UploadSpreadsheetModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
-      <div className="w-full max-w-2xl bg-[#111722] border border-[#263143] rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+    <div
+      className={`fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in ${
+        isLight ? 'bg-slate-900/50' : 'bg-black/75'
+      }`}
+    >
+      <div
+        className={`w-full max-w-2xl rounded-2xl shadow-2xl flex flex-col overflow-hidden border transition-all ${
+          isLight
+            ? 'bg-white border-slate-200 text-slate-800'
+            : 'bg-[#111722] border-[#263143] text-[#f1f5f9]'
+        }`}
+      >
         {/* Header */}
-        <div className="px-4 sm:px-6 py-4 border-b border-[#263143] flex items-center justify-between bg-[#151d2b]">
+        <div
+          className={`px-4 sm:px-6 py-4 border-b flex items-center justify-between ${
+            isLight ? 'bg-slate-50 border-slate-200' : 'bg-[#151d2b] border-[#263143]'
+          }`}
+        >
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-[#2ca03a]/15 border border-[#2ca03a]/30 flex items-center justify-center text-[#34b344] shrink-0">
+            <div
+              className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${
+                isLight
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-600'
+                  : 'bg-[#2ca03a]/15 border-[#2ca03a]/30 text-[#34b344]'
+              }`}
+            >
               <Upload className="w-5 h-5" />
             </div>
             <div className="min-w-0">
-              <h2 className="text-sm sm:text-base font-bold text-white flex items-center gap-2 flex-wrap">
+              <h2
+                className={`text-sm sm:text-base font-bold flex items-center gap-2 flex-wrap ${
+                  isLight ? 'text-slate-900' : 'text-white'
+                }`}
+              >
                 Ingestão de Planilhas de Telemetria
-                <span className="text-[10px] font-mono uppercase bg-[#2ca03a]/20 text-[#34b344] px-2 py-0.5 rounded border border-[#2ca03a]/30">
+                <span
+                  className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded border ${
+                    isLight
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200 font-semibold'
+                      : 'bg-[#2ca03a]/20 text-[#34b344] border-[#2ca03a]/30'
+                  }`}
+                >
                   Deduplicação Ativa
                 </span>
               </h2>
-              <p className="text-xs text-[#94a3b8] mt-0.5">
+              <p className={`text-xs mt-0.5 ${isLight ? 'text-slate-500' : 'text-[#94a3b8]'}`}>
                 Arraste os relatórios brutos do CCO (.xlsx ou .csv) para atualização direta no Supabase
               </p>
             </div>
@@ -237,7 +271,11 @@ export default function UploadSpreadsheetModal({
             type="button"
             onClick={handleClose}
             disabled={isUploading}
-            className="size-9 min-h-[36px] min-w-[36px] rounded-lg text-[#94a3b8] hover:text-white hover:bg-[#1f2937] transition-colors flex items-center justify-center shrink-0 cursor-pointer"
+            className={`size-9 min-h-[36px] min-w-[36px] rounded-lg transition-colors flex items-center justify-center shrink-0 cursor-pointer ${
+              isLight
+                ? 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'
+                : 'text-[#94a3b8] hover:text-white hover:bg-[#1f2937]'
+            }`}
             aria-label="Fechar modal"
           >
             <X className="w-5 h-5" />
@@ -247,8 +285,14 @@ export default function UploadSpreadsheetModal({
         {/* Content Body */}
         <div className="p-4 sm:p-6 flex flex-col gap-4 max-h-[85dvh] overflow-y-auto">
           {errorMessage && (
-            <div className="p-3 rounded-xl bg-red-950/40 border border-red-500/40 text-red-300 text-xs flex items-center gap-2.5">
-              <AlertTriangle className="w-4 h-4 shrink-0 text-red-400" />
+            <div
+              className={`p-3 rounded-xl border text-xs flex items-center gap-2.5 ${
+                isLight
+                  ? 'bg-red-50 border-red-200 text-red-700'
+                  : 'bg-red-950/40 border-red-500/40 text-red-300'
+              }`}
+            >
+              <AlertTriangle className={`w-4 h-4 shrink-0 ${isLight ? 'text-red-500' : 'text-red-400'}`} />
               <span>{errorMessage}</span>
             </div>
           )}
@@ -264,7 +308,11 @@ export default function UploadSpreadsheetModal({
               onDrop={handleFileDrop}
               className={`border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center gap-3 text-center transition-all cursor-pointer ${
                 isDragging
-                  ? 'border-[#34b344] bg-[#2ca03a]/10 scale-[0.99]'
+                  ? isLight
+                    ? 'border-emerald-500 bg-emerald-50 scale-[0.99]'
+                    : 'border-[#34b344] bg-[#2ca03a]/10 scale-[0.99]'
+                  : isLight
+                  ? 'border-slate-300 bg-slate-50/70 hover:border-emerald-500 hover:bg-emerald-50/30'
                   : 'border-[#283548] bg-[#0c1017]/60 hover:border-[#34b344]/60 hover:bg-[#131923]'
               }`}
               onClick={() => fileInputRef.current?.click()}
@@ -279,26 +327,32 @@ export default function UploadSpreadsheetModal({
                 }}
               />
 
-              <div className="w-14 h-14 rounded-2xl bg-[#1c2432] border border-[#283548] flex items-center justify-center text-[#34b344]">
+              <div
+                className={`w-14 h-14 rounded-2xl border flex items-center justify-center ${
+                  isLight
+                    ? 'bg-white border-slate-200 text-emerald-600 shadow-sm'
+                    : 'bg-[#1c2432] border-[#283548] text-[#34b344]'
+                }`}
+              >
                 {isParsing ? (
-                  <Loader2 className="w-7 h-7 animate-spin text-[#34b344]" />
+                  <Loader2 className={`w-7 h-7 animate-spin ${isLight ? 'text-emerald-600' : 'text-[#34b344]'}`} />
                 ) : (
                   <FileSpreadsheet className="w-7 h-7" />
                 )}
               </div>
 
               <div>
-                <p className="text-sm font-semibold text-white">
+                <p className={`text-sm font-semibold ${isLight ? 'text-slate-800' : 'text-white'}`}>
                   {isParsing
                     ? 'Lendo e higienizando planilha...'
                     : 'Clique para selecionar ou arraste o arquivo aqui'}
                 </p>
-                <p className="text-xs text-[#94a3b8] mt-1">
-                  Formatos suportados: <strong className="text-white">.xlsx, .xls, .csv</strong> (Relatório de Alertas CSG)
+                <p className={`text-xs mt-1 ${isLight ? 'text-slate-500' : 'text-[#94a3b8]'}`}>
+                  Formatos suportados: <strong className={isLight ? 'text-slate-800' : 'text-white'}>.xlsx, .xls, .csv</strong> (Relatório de Alertas CSG)
                 </p>
               </div>
 
-              <div className="flex items-center gap-2 text-[11px] text-[#64748b] font-mono mt-2">
+              <div className={`flex items-center gap-2 text-[11px] font-mono mt-2 ${isLight ? 'text-slate-400' : 'text-[#64748b]'}`}>
                 <span>Trava SHA-256 Anti-Duplicidade</span>
                 <span>•</span>
                 <span>Auditado pelo SESMT</span>
@@ -307,19 +361,31 @@ export default function UploadSpreadsheetModal({
           ) : (
             /* Pre-ingestion Summary View */
             <div className="flex flex-col gap-4 animate-fade-in">
-              <div className="p-3.5 rounded-xl bg-[#16202e] border border-[#283548] flex items-center justify-between">
+              <div
+                className={`p-3.5 rounded-xl border flex items-center justify-between ${
+                  isLight
+                    ? 'bg-slate-50 border-slate-200 shadow-xs'
+                    : 'bg-[#16202e] border-[#283548]'
+                }`}
+              >
                 <div className="flex items-center gap-3 min-w-0">
-                  <FileSpreadsheet className="w-6 h-6 text-[#34b344] shrink-0" />
+                  <FileSpreadsheet className={`w-6 h-6 shrink-0 ${isLight ? 'text-emerald-600' : 'text-[#34b344]'}`} />
                   <div className="min-w-0">
-                    <p className="text-xs font-bold text-white truncate">{summary.fileName}</p>
-                    <p className="text-[11px] text-[#94a3b8]">{summary.totalRows} registros identificados na planilha</p>
+                    <p className={`text-xs font-bold truncate ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                      {summary.fileName}
+                    </p>
+                    <p className={`text-[11px] ${isLight ? 'text-slate-500' : 'text-[#94a3b8]'}`}>
+                      {summary.totalRows} registros identificados na planilha
+                    </p>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={resetState}
                   disabled={isUploading}
-                  className="text-xs text-[#34b344] hover:underline shrink-0 font-semibold"
+                  className={`text-xs hover:underline shrink-0 font-semibold cursor-pointer ${
+                    isLight ? 'text-emerald-600 hover:text-emerald-700' : 'text-[#34b344]'
+                  }`}
                 >
                   Trocar arquivo
                 </button>
@@ -327,30 +393,70 @@ export default function UploadSpreadsheetModal({
 
               {/* 4 Cards de Auditoria Prévia */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                <div className="p-3 rounded-xl bg-[#0e141f] border border-[#263143]">
-                  <span className="text-[10px] uppercase font-bold text-[#94a3b8]">Linhas Lidas</span>
-                  <p className="text-lg font-mono font-bold text-white mt-0.5">{summary.totalRows}</p>
+                <div
+                  className={`p-3 rounded-xl border ${
+                    isLight ? 'bg-slate-50 border-slate-200' : 'bg-[#0e141f] border-[#263143]'
+                  }`}
+                >
+                  <span className={`text-[10px] uppercase font-bold ${isLight ? 'text-slate-500' : 'text-[#94a3b8]'}`}>
+                    Linhas Lidas
+                  </span>
+                  <p className={`text-lg font-mono font-bold mt-0.5 ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                    {summary.totalRows}
+                  </p>
                 </div>
-                <div className="p-3 rounded-xl bg-[#0e141f] border border-[#263143]">
-                  <span className="text-[10px] uppercase font-bold text-[#94a3b8]">Veículos Únicos</span>
-                  <p className="text-lg font-mono font-bold text-[#34b344] mt-0.5">{summary.uniquePlates}</p>
+                <div
+                  className={`p-3 rounded-xl border ${
+                    isLight ? 'bg-slate-50 border-slate-200' : 'bg-[#0e141f] border-[#263143]'
+                  }`}
+                >
+                  <span className={`text-[10px] uppercase font-bold ${isLight ? 'text-slate-500' : 'text-[#94a3b8]'}`}>
+                    Veículos Únicos
+                  </span>
+                  <p className={`text-lg font-mono font-bold mt-0.5 ${isLight ? 'text-emerald-600' : 'text-[#34b344]'}`}>
+                    {summary.uniquePlates}
+                  </p>
                 </div>
-                <div className="p-3 rounded-xl bg-[#0e141f] border border-[#263143]">
-                  <span className="text-[10px] uppercase font-bold text-[#94a3b8]">&gt; 80 km/h (Teto)</span>
-                  <p className="text-lg font-mono font-bold text-amber-400 mt-0.5">{summary.violationsAbove80}</p>
+                <div
+                  className={`p-3 rounded-xl border ${
+                    isLight ? 'bg-slate-50 border-slate-200' : 'bg-[#0e141f] border-[#263143]'
+                  }`}
+                >
+                  <span className={`text-[10px] uppercase font-bold ${isLight ? 'text-slate-500' : 'text-[#94a3b8]'}`}>
+                    &gt; 80 km/h (Teto)
+                  </span>
+                  <p className={`text-lg font-mono font-bold mt-0.5 ${isLight ? 'text-amber-600' : 'text-amber-400'}`}>
+                    {summary.violationsAbove80}
+                  </p>
                 </div>
-                <div className="p-3 rounded-xl bg-[#0e141f] border border-[#263143]">
-                  <span className="text-[10px] uppercase font-bold text-[#94a3b8]">Sem Identificação</span>
-                  <p className="text-lg font-mono font-bold text-red-400 mt-0.5">{summary.unidentifiedCount}</p>
+                <div
+                  className={`p-3 rounded-xl border ${
+                    isLight ? 'bg-slate-50 border-slate-200' : 'bg-[#0e141f] border-[#263143]'
+                  }`}
+                >
+                  <span className={`text-[10px] uppercase font-bold ${isLight ? 'text-slate-500' : 'text-[#94a3b8]'}`}>
+                    Sem Identificação
+                  </span>
+                  <p className={`text-lg font-mono font-bold mt-0.5 ${isLight ? 'text-red-600' : 'text-red-400'}`}>
+                    {summary.unidentifiedCount}
+                  </p>
                 </div>
               </div>
 
               {/* Regra de Ouro Notice */}
-              <div className="p-3.5 rounded-xl bg-[#1c2432]/60 border border-[#2ca03a]/30 flex items-start gap-3 text-xs text-[#cbd5e1]">
-                <ShieldAlert className="w-5 h-5 text-[#34b344] shrink-0 mt-0.5" />
+              <div
+                className={`p-3.5 rounded-xl border flex items-start gap-3 text-xs ${
+                  isLight
+                    ? 'bg-emerald-50/70 border-emerald-200/90 text-slate-700'
+                    : 'bg-[#1c2432]/60 border-[#2ca03a]/30 text-[#cbd5e1]'
+                }`}
+              >
+                <ShieldAlert className={`w-5 h-5 shrink-0 mt-0.5 ${isLight ? 'text-emerald-600' : 'text-[#34b344]'}`} />
                 <div>
-                  <p className="font-semibold text-white">Governança CSG: Trava Anti-Duplicação Ativa</p>
-                  <p className="text-[#94a3b8] text-[11px] mt-0.5 leading-relaxed">
+                  <p className={`font-semibold ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                    Governança CSG: Trava Anti-Duplicação Ativa
+                  </p>
+                  <p className={`text-[11px] mt-0.5 leading-relaxed ${isLight ? 'text-slate-600' : 'text-[#94a3b8]'}`}>
                     Eventos repetidos com mesma placa, data, horário e velocidade serão descartados automaticamente pelo hash único, garantindo integridade absoluta nos rankings de bonificação.
                   </p>
                 </div>
@@ -359,13 +465,15 @@ export default function UploadSpreadsheetModal({
               {/* Barra de Progresso no Upload */}
               {isUploading && (
                 <div className="flex flex-col gap-1.5 pt-2">
-                  <div className="flex justify-between text-xs text-[#94a3b8]">
+                  <div className={`flex justify-between text-xs ${isLight ? 'text-slate-600' : 'text-[#94a3b8]'}`}>
                     <span>Gravando lotes no Supabase (sa-east-1)...</span>
-                    <span className="font-mono font-bold text-[#34b344]">{uploadProgress}%</span>
+                    <span className={`font-mono font-bold ${isLight ? 'text-emerald-600' : 'text-[#34b344]'}`}>
+                      {uploadProgress}%
+                    </span>
                   </div>
-                  <div className="w-full h-2 rounded-full bg-[#1c2432] overflow-hidden">
+                  <div className={`w-full h-2 rounded-full overflow-hidden ${isLight ? 'bg-slate-200' : 'bg-[#1c2432]'}`}>
                     <div
-                      className="h-full bg-[#34b344] transition-all duration-300"
+                      className={`h-full transition-all duration-300 ${isLight ? 'bg-emerald-600' : 'bg-[#34b344]'}`}
                       style={{ width: `${uploadProgress}%` }}
                     />
                   </div>
@@ -376,12 +484,20 @@ export default function UploadSpreadsheetModal({
         </div>
 
         {/* Footer Actions */}
-        <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-[#263143] bg-[#151d2b] flex flex-col-reverse sm:flex-row sm:items-center justify-end gap-2.5 sm:gap-3">
+        <div
+          className={`px-4 sm:px-6 py-3 sm:py-4 border-t flex flex-col-reverse sm:flex-row sm:items-center justify-end gap-2.5 sm:gap-3 ${
+            isLight ? 'border-slate-200 bg-slate-50' : 'border-[#263143] bg-[#151d2b]'
+          }`}
+        >
           <button
             type="button"
             onClick={handleClose}
             disabled={isUploading}
-            className="px-4 py-2 min-h-[38px] rounded-xl text-xs font-semibold text-[#94a3b8] hover:text-white hover:bg-[#1f2937] transition-colors text-center"
+            className={`px-4 py-2 min-h-[38px] rounded-xl text-xs font-semibold transition-colors text-center cursor-pointer ${
+              isLight
+                ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/70 border border-slate-200'
+                : 'text-[#94a3b8] hover:text-white hover:bg-[#1f2937]'
+            }`}
           >
             Cancelar
           </button>
@@ -391,17 +507,17 @@ export default function UploadSpreadsheetModal({
               type="button"
               onClick={handleConfirmUpload}
               disabled={isUploading}
-              className="px-5 py-2 min-h-[38px] rounded-xl bg-[#2ca03a] hover:bg-[#34b344] text-white text-xs font-bold transition-all shadow-[0_0_15px_rgba(52,179,68,0.35)] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              className="px-5 py-2 min-h-[38px] rounded-xl bg-[#2ca03a] hover:bg-[#34b344] text-white text-white-fixed text-xs font-bold transition-all shadow-[0_0_15px_rgba(52,179,68,0.35)] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
             >
               {isUploading ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Sincronizando Banco de Dados...</span>
+                  <Loader2 className="w-4 h-4 animate-spin text-white-fixed" />
+                  <span className="text-white-fixed">Sincronizando Banco de Dados...</span>
                 </>
               ) : (
                 <>
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>Gravar {summary.records.length} Eventos no Supabase</span>
+                  <CheckCircle2 className="w-4 h-4 text-white-fixed" />
+                  <span className="text-white-fixed">Gravar {summary.records.length} Eventos no Supabase</span>
                 </>
               )}
             </button>

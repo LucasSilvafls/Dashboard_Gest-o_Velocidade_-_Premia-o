@@ -116,7 +116,9 @@ html.light ::-webkit-scrollbar-thumb:hover {
 .light [class*="bg-[#101317]"],
 .light [class*="bg-[#141b24]"],
 .light [class*="bg-[#0e141c]"],
-.light [class*="bg-[#0e1217]"] {
+.light [class*="bg-[#0e1217]"],
+.light [class*="bg-[#111722]"],
+.light [class*="bg-[#151d2b]"] {
   background-color: #ffffff !important;
   border-color: #e2e8f0 !important;
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05) !important;
@@ -130,7 +132,9 @@ html.light ::-webkit-scrollbar-thumb:hover {
 .light [class*="bg-[#1b232c]"],
 .light [class*="bg-[#1c2026]"],
 .light [class*="bg-[#1c2432]"],
-.light [class*="bg-[#1e293b]"] {
+.light [class*="bg-[#1e293b]"],
+.light [class*="bg-[#16202e]"],
+.light [class*="bg-[#0e141f]"] {
   background-color: #f1f5f9 !important;
   border-color: #e2e8f0 !important;
 }
@@ -141,7 +145,8 @@ html.light ::-webkit-scrollbar-thumb:hover {
 .light [class*="hover:bg-[#1c2026]"]:hover,
 .light [class*="hover:bg-[#161f2a]"]:hover,
 .light [class*="hover:bg-[#1b232c]"]:hover,
-.light [class*="hover:bg-[#283548]"]:hover {
+.light [class*="hover:bg-[#283548]"]:hover,
+.light [class*="hover:bg-[#1f2937]"]:hover {
   background-color: #e2e8f0 !important;
 }
 
@@ -154,6 +159,7 @@ html.light ::-webkit-scrollbar-thumb:hover {
 .light [class*="border-[#1c2432]"],
 .light [class*="border-[#0c1017]"],
 .light [class*="border-[#1b232c]"],
+.light [class*="border-[#263143]"],
 .light [class*="divide-[#283548]"] > * + *,
 .light [class*="divide-[#262b35]"] > * + * {
   border-color: #e2e8f0 !important;
@@ -338,7 +344,9 @@ html.light ::-webkit-scrollbar-thumb:hover {
 }
 
 .light [class*="bg-[#131923]"] > div:first-child[class*="bg-[#0c1017]"],
-.light [class*="bg-[#131923]"] > div:last-child[class*="bg-[#0c1017]"] {
+.light [class*="bg-[#131923]"] > div:last-child[class*="bg-[#0c1017]"],
+.light [class*="bg-[#111722]"] > div:first-child[class*="bg-[#151d2b]"],
+.light [class*="bg-[#111722]"] > div:last-child[class*="bg-[#151d2b]"] {
   background-color: #f8fafc !important;
   border-color: #e2e8f0 !important;
 }
