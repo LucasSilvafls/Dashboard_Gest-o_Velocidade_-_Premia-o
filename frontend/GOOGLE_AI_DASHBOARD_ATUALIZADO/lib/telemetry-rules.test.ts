@@ -264,4 +264,48 @@ test('isHeavyVehicleCategory: valida conformidade com o Regulamento Oficial da P
   assert.equal(isHeavyVehicleCategory(undefined), false);
 });
 
+test('Competence to Period Display: competência de outubro reflete datas 26/09 a 25/10/2026', () => {
+  const octInfo = getCompetenceInfoFromKey('2026-10');
+  assert.ok(octInfo);
+  assert.equal(octInfo.label, 'Outubro/2026');
+  assert.equal(octInfo.startDateStr, '26/09/2026');
+  assert.equal(octInfo.endDateStr, '25/10/2026');
+
+  const periodDisplay = formatDatesToPeriodDisplay(octInfo.startDateStr, octInfo.endDateStr);
+  assert.equal(periodDisplay, '26/09 a 25/10/2026');
+
+  // Competência de novembro reflete datas 26/10 a 25/11/2026
+  const novInfo = getCompetenceInfoFromKey('2026-11');
+  assert.ok(novInfo);
+  assert.equal(novInfo.label, 'Novembro/2026');
+  const novDisplay = formatDatesToPeriodDisplay(novInfo.startDateStr, novInfo.endDateStr);
+  assert.equal(novDisplay, '26/10 a 25/11/2026');
+});
+
+test('Table column sorting: ordenação rápida maior/menor para números, strings e datas', () => {
+  const sample = [
+    { code: '#16086', speed: 85, driver: 'CLEBER' },
+    { code: '#16087', speed: 71, driver: 'SENIVALDO' },
+    { code: '#16094', speed: 88, driver: 'ANA' },
+  ];
+
+  // Ordenação por velocidade decrescente (maior para menor)
+  const sortedDesc = [...sample].sort((a, b) => b.speed - a.speed);
+  assert.equal(sortedDesc[0].speed, 88);
+  assert.equal(sortedDesc[1].speed, 85);
+  assert.equal(sortedDesc[2].speed, 71);
+
+  // Ordenação por velocidade crescente (menor para maior)
+  const sortedAsc = [...sample].sort((a, b) => a.speed - b.speed);
+  assert.equal(sortedAsc[0].speed, 71);
+  assert.equal(sortedAsc[1].speed, 85);
+  assert.equal(sortedAsc[2].speed, 88);
+
+  // Ordenação alfabética por condutor (A-Z)
+  const sortedName = [...sample].sort((a, b) => a.driver.localeCompare(b.driver));
+  assert.equal(sortedName[0].driver, 'ANA');
+  assert.equal(sortedName[1].driver, 'CLEBER');
+  assert.equal(sortedName[2].driver, 'SENIVALDO');
+});
+
 

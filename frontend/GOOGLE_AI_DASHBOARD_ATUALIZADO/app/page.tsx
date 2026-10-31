@@ -38,7 +38,9 @@ import {
 import {
   getDatasetDateBounds,
   formatTimestampsToPeriodDisplay,
+  formatDatesToPeriodDisplay,
 } from '@/lib/telemetry-rules';
+import { useOperationalFilters } from '@/components/OperationalFilterBar';
 
 function createAuditLogEntry(action: string, operator = 'Operador CCO (admin)', ip = '192.168.10.45'): AuditLog {
   const now = new Date();
@@ -290,15 +292,42 @@ export default function Home() {
     };
   }, []);
 
-  // Período responsivo: obtém dinamicamente do Supabase (stats.periodo) ou calcula diretamente dos dados de telemetria
+  // Estado Global dos Filtros Operacionais compartilhado entre todas as telas
+  const filterState = useOperationalFilters(incidents);
+
+  // Período responsivo: atualiza dinamicamente e "responde" ao filtro ativo (competência, datas, período)
   const dynamicPeriodo = useMemo(() => {
-    if (stats?.periodo) return stats.periodo;
+    // 1. Se competência estiver selecionada, reflete o período da competência (ex: 26/09 a 25/10/2026)
+    if (filterState.selectedCompetenceInfo) {
+      return formatDatesToPeriodDisplay(
+        filterState.selectedCompetenceInfo.startDateStr,
+        filterState.selectedCompetenceInfo.endDateStr
+      );
+    }
+    // 2. Se dia específico estiver selecionado
+    if (filterState.specificDay !== 'all') {
+      return filterState.specificDay;
+    }
+    // 3. Se filtro de período relativo (7d, 15d, 30d, etc.) estiver selecionado
+    if (filterState.period !== 'all' && filterState.filteredIncidents.length > 0) {
+      const { minTs, maxTs } = getDatasetDateBounds(filterState.filteredIncidents);
+      return formatTimestampsToPeriodDisplay(minTs, maxTs);
+    }
+    // 4. Se incidents carregados, calcula datas reais do dataset completo (ex: 26/09 a 30/10/2026)
     if (incidents && incidents.length > 0) {
       const { minTs, maxTs } = getDatasetDateBounds(incidents);
       return formatTimestampsToPeriodDisplay(minTs, maxTs);
     }
-    return '26/09 a 25/10/2026';
-  }, [stats?.periodo, incidents]);
+    if (stats?.periodo) return stats.periodo;
+    return '26/09 a 30/10/2026';
+  }, [
+    filterState.selectedCompetenceInfo,
+    filterState.specificDay,
+    filterState.period,
+    filterState.filteredIncidents,
+    incidents,
+    stats?.periodo,
+  ]);
 
   // Collapsible Sidebar state
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -539,7 +568,7 @@ export default function Home() {
                   totalAlertas: stats.totalAlertas,
                   totalVelocidade: stats.totalVelocidade,
                   totalVeiculos: stats.totalVeiculos,
-                  periodo: stats.periodo || dynamicPeriodo,
+                  periodo: dynamicPeriodo,
                 }
               : {
                   totalAlertas: 16068,
@@ -552,7 +581,7 @@ export default function Home() {
 
         <main className="w-full min-w-0 pt-16 px-3 sm:px-4 md:px-6 bg-[#0c1017] min-h-screen transition-colors duration-200">
           {currentScreen === 'resumo-geral-e-horarios' && (
-            <ExecutiveSummaryScreen incidents={incidents} />
+            <ExecutiveSummaryScreen incidents={incidents} filterState={filterState} />
           )}
 
           {currentScreen === 'rankings-frota-e-motoristas' && (
@@ -560,6 +589,7 @@ export default function Home() {
               incidents={incidents}
               onSelectDriver={(driver) => setSelectedDriver(driver)}
               drivers={driverScores}
+              filterState={filterState}
             />
           )}
 
@@ -567,6 +597,7 @@ export default function Home() {
             <IncidentsHighwayScreen
               incidents={incidents}
               onSelectIncident={(inc) => setSelectedIncident(inc)}
+              filterState={filterState}
             />
           )}
 
@@ -575,6 +606,7 @@ export default function Home() {
               onSelectDriver={(driver) => setSelectedDriver(driver)}
               drivers={driverScores}
               incidents={incidents}
+              filterState={filterState}
             />
           )}
 
@@ -583,6 +615,7 @@ export default function Home() {
               incidents={incidents}
               onSelectIncident={(inc) => setSelectedIncident(inc)}
               onLinkDriver={handleLinkDriver}
+              filterState={filterState}
             />
           )}
 

@@ -3,21 +3,24 @@
 import React, { useState, useMemo } from 'react';
 import { INITIAL_INCIDENTS, Incident } from '@/lib/telemetry-data';
 import { convertToCSV, parseDateBR } from '@/lib/telemetry-rules';
-import { OperationalFilterBar, useOperationalFilters } from '@/components/OperationalFilterBar';
+import { OperationalFilterBar, useOperationalFilters, OperationalFilterState } from '@/components/OperationalFilterBar';
 
 interface ExecutiveSummaryScreenProps {
   incidents?: Incident[];
+  filterState?: OperationalFilterState;
 }
 
 export default function ExecutiveSummaryScreen({
   incidents = INITIAL_INCIDENTS,
+  filterState: externalFilterState,
 }: ExecutiveSummaryScreenProps) {
   const [viewMode, setViewMode] = useState<'daily' | 'weekly'>('daily');
   const [hourlySortOrder, setHourlySortOrder] = useState<'desc' | 'cron'>('desc');
   const [isSyncing, setIsSyncing] = useState(false);
   const [hoveredBar, setHoveredBar] = useState<string | null>(null);
 
-  const filterState = useOperationalFilters(incidents);
+  const localFilterState = useOperationalFilters(incidents);
+  const filterState = externalFilterState || localFilterState;
   const { filteredIncidents } = filterState;
 
   const handleSync = () => {
@@ -493,10 +496,10 @@ export default function ExecutiveSummaryScreen({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 mb-4">
         {/* Left Card: Quantidade de Excessos de Velocidade por Dia */}
         <div
-          className="lg:col-span-7 rounded-xl p-4 flex flex-col justify-between shadow-sm bg-[#131923] border border-[#283548]"
+          className="lg:col-span-7 rounded-xl p-4 flex flex-col justify-between shadow-sm bg-[#131923] border border-[#283548] h-full"
           style={{ backgroundColor: '#131923', border: '1px solid #283548' }}
         >
-          <div className="flex flex-wrap items-center justify-between gap-2 pb-2">
+          <div className="flex flex-wrap items-center justify-between gap-2 pb-2 min-h-[48px]">
             <div className="flex flex-col">
               <div className="flex items-center gap-1.5">
                 <span className="material-symbols-outlined text-[#34b344] text-[18px]">
@@ -605,7 +608,7 @@ export default function ExecutiveSummaryScreen({
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-[#283548] mt-2">
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-[#283548] mt-2 min-h-[38px]">
             <div className="flex items-center gap-4 text-xs font-tabular-data">
               <div className="flex items-center gap-1.5">
                 <span className="w-2.5 h-2.5 rounded-sm bg-[#ef4444]" />
@@ -628,10 +631,10 @@ export default function ExecutiveSummaryScreen({
 
         {/* Right Card: Horários com Mais Excessos */}
         <div
-          className="lg:col-span-5 rounded-xl p-4 flex flex-col justify-between shadow-sm bg-[#131923] border border-[#283548]"
+          className="lg:col-span-5 rounded-xl p-4 flex flex-col justify-between shadow-sm bg-[#131923] border border-[#283548] h-full"
           style={{ backgroundColor: '#131923', border: '1px solid #283548' }}
         >
-          <div className="flex flex-wrap items-center justify-between gap-2 pb-2">
+          <div className="flex flex-wrap items-center justify-between gap-2 pb-2 min-h-[48px]">
             <div className="flex flex-col">
               <div className="flex items-center gap-1.5">
                 <span className="material-symbols-outlined text-[#f59e0b] text-[18px]">
@@ -725,6 +728,30 @@ export default function ExecutiveSummaryScreen({
                 ))}
               </div>
             </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-[#283548] mt-2 min-h-[38px]">
+            <div className="flex items-center gap-3 text-xs font-tabular-data">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-sm bg-[#ef4444]" />
+                <span className="text-[#f1f5f9]">Pico</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-sm bg-[#f59e0b]" />
+                <span className="text-[#f1f5f9]">Alto (&ge;50%)</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-sm bg-[#34b344]" />
+                <span className="text-[#f1f5f9]">Moderado (&ge;25%)</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-sm bg-[#283548]" />
+                <span className="text-[#94a3b8]">Baixo</span>
+              </div>
+            </div>
+            <span className="font-tabular-data text-[10px] text-[#94a3b8] font-semibold">
+              PASSE O MOUSE PARA DETALHES
+            </span>
           </div>
         </div>
       </div>

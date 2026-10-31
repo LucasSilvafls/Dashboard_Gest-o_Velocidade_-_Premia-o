@@ -8,24 +8,27 @@ import {
   Incident,
 } from '@/lib/telemetry-data';
 import { convertToCSV } from '@/lib/telemetry-rules';
-import { OperationalFilterBar, useOperationalFilters } from '@/components/OperationalFilterBar';
+import { OperationalFilterBar, useOperationalFilters, OperationalFilterState } from '@/components/OperationalFilterBar';
 
 interface FleetRankingsScreenProps {
   onSelectDriver: (driver: DriverScore) => void;
   drivers?: DriverScore[];
   incidents?: Incident[];
+  filterState?: OperationalFilterState;
 }
 
 export default function FleetRankingsScreen({
   onSelectDriver,
   drivers = INITIAL_DRIVERS,
   incidents = INITIAL_INCIDENTS,
+  filterState: externalFilterState,
 }: FleetRankingsScreenProps) {
   const [rankingMode, setRankingMode] = useState<'plate' | 'category'>('plate');
   const [selectedPlate, setSelectedPlate] = useState<string>('SMB0C86');
   const [isSyncing, setIsSyncing] = useState(false);
 
-  const filterState = useOperationalFilters(incidents);
+  const localFilterState = useOperationalFilters(incidents);
+  const filterState = externalFilterState || localFilterState;
   const { filteredIncidents, plate: filterPlate } = filterState;
 
   // Sync quick lookup plate when Filter 5 (Placa do Veículo) is chosen (sem cascading renders)

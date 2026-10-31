@@ -2,29 +2,57 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Incident } from '@/lib/telemetry-data';
-import { convertToCSV } from '@/lib/telemetry-rules';
-import { OperationalFilterBar, useOperationalFilters } from '@/components/OperationalFilterBar';
+import { convertToCSV, parseDateBR } from '@/lib/telemetry-rules';
+import { OperationalFilterBar, useOperationalFilters, OperationalFilterState } from '@/components/OperationalFilterBar';
 
 interface AuditUnidentifiedScreenProps {
   incidents: Incident[];
   onSelectIncident: (incident: Incident) => void;
   onLinkDriver: (incidentId: string) => void;
+  filterState?: OperationalFilterState;
 }
 
 export default function AuditUnidentifiedScreen({
   incidents,
   onSelectIncident,
   onLinkDriver,
+  filterState: externalFilterState,
 }: AuditUnidentifiedScreenProps) {
   const [activeTab, setActiveTab] = useState<'all' | 'graves' | 'rodovias' | 'preconciliados'>('all');
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [isSyncing, setIsSyncing] = useState(false);
   const pageSize = 20;
 
-  // Defaults to 'sem_identificacao' for the Unidentified Audit page, while allowing all 3 options in Filter 6
-  const filterState = useOperationalFilters(incidents, {
+  // Sorting state for table columns
+  type AuditSortField =
+    | 'code'
+    | 'dateTime'
+    | 'vehicle'
+    | 'driver'
+    | 'speed'
+    | 'highway'
+    | 'duration'
+    | 'status';
+
+  const [sortField, setSortField] = useState<AuditSortField | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc' | null>(null);
+
+  const handleSort = (field: AuditSortField) => {
+    if (sortField !== field) {
+      setSortField(field);
+      setSortDirection('asc');
+    } else if (sortDirection === 'asc') {
+      setSortDirection('desc');
+    } else {
+      setSortField(null);
+      setSortDirection(null);
+    }
+  };
+
+  const localFilterState = useOperationalFilters(incidents, {
     defaultDriverIdStatus: 'sem_identificacao',
   });
+  const filterState = externalFilterState || localFilterState;
 
   const { filteredIncidents: baseFiltered, searchQuery, setSearchQuery } = filterState;
 
@@ -171,12 +199,70 @@ export default function AuditUnidentifiedScreen({
     return ((pendingCount / filteredIncidents.length) * 100).toFixed(1).replace('.', ',') + '%';
   }, [filteredIncidents, pendingCount]);
 
+  // Helper to convert time string to seconds for sorting
+  const parseTimeToSeconds = (timeStr?: string): number => {
+    if (!timeStr) return 0;
+    const parts = timeStr.split(':').map((p) => parseInt(p, 10));
+    if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    if (parts.length === 2) return parts[0] * 3600 + parts[1] * 60;
+    return 0;
+  };
+
+  // Dynamic sorting for audit incidents table
+  const sortedIncidents = useMemo(() => {
+    if (!sortField || !sortDirection) return filteredIncidents;
+    const list = [...filteredIncidents];
+    list.sort((a, b) => {
+      let cmp = 0;
+      switch (sortField) {
+        case 'code': {
+          const numA = parseInt(a.code.replace(/\D/g, ''), 10) || 0;
+          const numB = parseInt(b.code.replace(/\D/g, ''), 10) || 0;
+          cmp = numA - numB;
+          break;
+        }
+        case 'dateTime': {
+          const tsA = (parseDateBR(a.date) || 0) + parseTimeToSeconds(a.time);
+          const tsB = (parseDateBR(b.date) || 0) + parseTimeToSeconds(b.time);
+          cmp = tsA - tsB;
+          break;
+        }
+        case 'vehicle':
+          cmp = (a.plate || '').localeCompare(b.plate || '');
+          break;
+        case 'driver': {
+          const nameA = a.hasDriver ? a.driver || '' : (a.suggestedDriver?.name || 'ZZZ');
+          const nameB = b.hasDriver ? b.driver || '' : (b.suggestedDriver?.name || 'ZZZ');
+          cmp = nameA.localeCompare(nameB);
+          break;
+        }
+        case 'speed':
+          cmp = a.recordedSpeed - b.recordedSpeed;
+          break;
+        case 'highway':
+          cmp = (a.highway || '').localeCompare(b.highway || '');
+          break;
+        case 'duration':
+          cmp = (a.durationSeconds || 0) - (b.durationSeconds || 0);
+          break;
+        case 'status': {
+          const stA = a.hasDriver ? 'IDENTIFICADO' : (a.conciliationStatus || 'PENDENTE');
+          const stB = b.hasDriver ? 'IDENTIFICADO' : (b.conciliationStatus || 'PENDENTE');
+          cmp = stA.localeCompare(stB);
+          break;
+        }
+      }
+      return sortDirection === 'asc' ? cmp : -cmp;
+    });
+    return list;
+  }, [filteredIncidents, sortField, sortDirection]);
+
   // Pagination
-  const totalPages = Math.max(1, Math.ceil(filteredIncidents.length / pageSize));
+  const totalPages = Math.max(1, Math.ceil(sortedIncidents.length / pageSize));
   const paginatedIncidents = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
-    return filteredIncidents.slice(start, start + pageSize);
-  }, [filteredIncidents, currentPage, pageSize]);
+    return sortedIncidents.slice(start, start + pageSize);
+  }, [sortedIncidents, currentPage, pageSize]);
 
   const handleLink = (id: string) => {
     onLinkDriver(id);
@@ -650,14 +736,102 @@ export default function AuditUnidentifiedScreen({
           <table className="w-full min-w-[850px] text-left font-tabular-data text-xs border-collapse whitespace-nowrap">
             <thead>
               <tr className="text-[#94a3b8] border-b border-[#283548] bg-[#0b0f14] text-[10px] uppercase">
-                <th className="py-2.5 px-3">ID EVENTO</th>
-                <th className="py-2.5 px-3">DATA &amp; HORA</th>
-                <th className="py-2.5 px-3">VEÍCULO / CATEGORIA</th>
-                <th className="py-2.5 px-3">CONDUTOR</th>
-                <th className="py-2.5 px-3 text-right">VELOCIDADE / LIMITE</th>
-                <th className="py-2.5 px-3">RODOVIA &amp; TRECHO</th>
-                <th className="py-2.5 px-3">DURAÇÃO</th>
-                <th className="py-2.5 px-3 text-center">STATUS</th>
+                <th
+                  onClick={() => handleSort('code')}
+                  className="py-2.5 px-3 font-bold cursor-pointer select-none hover:text-white transition-colors group"
+                  title="Ordenar por ID Evento (menor/maior)"
+                >
+                  <div className="flex items-center gap-1">
+                    <span>ID EVENTO</span>
+                    <span className={`text-[11px] font-normal transition-colors ${sortField === 'code' ? 'text-[#34b344] font-bold' : 'text-[#64748b] group-hover:text-white'}`}>
+                      {sortField === 'code' ? (sortDirection === 'asc' ? '↑' : '↓') : '⇅'}
+                    </span>
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('dateTime')}
+                  className="py-2.5 px-3 font-bold cursor-pointer select-none hover:text-white transition-colors group"
+                  title="Ordenar por Data & Hora (menor/maior)"
+                >
+                  <div className="flex items-center gap-1">
+                    <span>DATA &amp; HORA</span>
+                    <span className={`text-[11px] font-normal transition-colors ${sortField === 'dateTime' ? 'text-[#34b344] font-bold' : 'text-[#64748b] group-hover:text-white'}`}>
+                      {sortField === 'dateTime' ? (sortDirection === 'asc' ? '↑' : '↓') : '⇅'}
+                    </span>
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('vehicle')}
+                  className="py-2.5 px-3 font-bold cursor-pointer select-none hover:text-white transition-colors group"
+                  title="Ordenar por Veículo / Categoria (A-Z / Z-A)"
+                >
+                  <div className="flex items-center gap-1">
+                    <span>VEÍCULO / CATEGORIA</span>
+                    <span className={`text-[11px] font-normal transition-colors ${sortField === 'vehicle' ? 'text-[#34b344] font-bold' : 'text-[#64748b] group-hover:text-white'}`}>
+                      {sortField === 'vehicle' ? (sortDirection === 'asc' ? '↑' : '↓') : '⇅'}
+                    </span>
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('driver')}
+                  className="py-2.5 px-3 font-bold cursor-pointer select-none hover:text-white transition-colors group"
+                  title="Ordenar por Condutor (A-Z / Z-A)"
+                >
+                  <div className="flex items-center gap-1">
+                    <span>CONDUTOR</span>
+                    <span className={`text-[11px] font-normal transition-colors ${sortField === 'driver' ? 'text-[#34b344] font-bold' : 'text-[#64748b] group-hover:text-white'}`}>
+                      {sortField === 'driver' ? (sortDirection === 'asc' ? '↑' : '↓') : '⇅'}
+                    </span>
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('speed')}
+                  className="py-2.5 px-3 text-right font-bold cursor-pointer select-none hover:text-white transition-colors group"
+                  title="Ordenar por Velocidade / Limite (menor/maior)"
+                >
+                  <div className="flex items-center justify-end gap-1">
+                    <span>VELOCIDADE / LIMITE</span>
+                    <span className={`text-[11px] font-normal transition-colors ${sortField === 'speed' ? 'text-[#34b344] font-bold' : 'text-[#64748b] group-hover:text-white'}`}>
+                      {sortField === 'speed' ? (sortDirection === 'asc' ? '↑' : '↓') : '⇅'}
+                    </span>
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('highway')}
+                  className="py-2.5 px-3 font-bold cursor-pointer select-none hover:text-white transition-colors group"
+                  title="Ordenar por Rodovia & Trecho (A-Z / Z-A)"
+                >
+                  <div className="flex items-center gap-1">
+                    <span>RODOVIA &amp; TRECHO</span>
+                    <span className={`text-[11px] font-normal transition-colors ${sortField === 'highway' ? 'text-[#34b344] font-bold' : 'text-[#64748b] group-hover:text-white'}`}>
+                      {sortField === 'highway' ? (sortDirection === 'asc' ? '↑' : '↓') : '⇅'}
+                    </span>
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('duration')}
+                  className="py-2.5 px-3 font-bold cursor-pointer select-none hover:text-white transition-colors group"
+                  title="Ordenar por Duração (menor/maior)"
+                >
+                  <div className="flex items-center gap-1">
+                    <span>DURAÇÃO</span>
+                    <span className={`text-[11px] font-normal transition-colors ${sortField === 'duration' ? 'text-[#34b344] font-bold' : 'text-[#64748b] group-hover:text-white'}`}>
+                      {sortField === 'duration' ? (sortDirection === 'asc' ? '↑' : '↓') : '⇅'}
+                    </span>
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('status')}
+                  className="py-2.5 px-3 text-center font-bold cursor-pointer select-none hover:text-white transition-colors group"
+                  title="Ordenar por Status (A-Z / Z-A)"
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    <span>STATUS</span>
+                    <span className={`text-[11px] font-normal transition-colors ${sortField === 'status' ? 'text-[#34b344] font-bold' : 'text-[#64748b] group-hover:text-white'}`}>
+                      {sortField === 'status' ? (sortDirection === 'asc' ? '↑' : '↓') : '⇅'}
+                    </span>
+                  </div>
+                </th>
                 <th className="py-2.5 px-3 text-right">AÇÕES</th>
               </tr>
             </thead>

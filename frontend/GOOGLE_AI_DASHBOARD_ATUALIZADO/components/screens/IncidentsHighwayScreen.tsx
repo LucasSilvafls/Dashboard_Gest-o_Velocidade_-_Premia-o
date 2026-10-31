@@ -2,24 +2,56 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Incident } from '@/lib/telemetry-data';
-import { convertToCSV } from '@/lib/telemetry-rules';
-import { OperationalFilterBar, useOperationalFilters } from '@/components/OperationalFilterBar';
+import { convertToCSV, parseDateBR } from '@/lib/telemetry-rules';
+import { OperationalFilterBar, useOperationalFilters, OperationalFilterState } from '@/components/OperationalFilterBar';
 
 interface IncidentsHighwayScreenProps {
   incidents: Incident[];
   onSelectIncident: (incident: Incident) => void;
+  filterState?: OperationalFilterState;
 }
 
 export default function IncidentsHighwayScreen({
   incidents,
   onSelectIncident,
+  filterState: externalFilterState,
 }: IncidentsHighwayScreenProps) {
   const [quickFilter, setQuickFilter] = useState<'all' | 'grave' | 'rodovias' | 'anon' | 'continuo'>('all');
   const [isSyncing, setIsSyncing] = useState(false);
   const [pageSize, setPageSize] = useState(25);
   const [currentPage, setCurrentPage] = useState(1);
 
-  const filterState = useOperationalFilters(incidents);
+  // Sorting state for table columns
+  type TableSortField =
+    | 'code'
+    | 'dateTime'
+    | 'plate'
+    | 'vehicleCategory'
+    | 'driver'
+    | 'speedLimit'
+    | 'recordedSpeed'
+    | 'deltaSpeed'
+    | 'duration'
+    | 'severity'
+    | 'highway';
+
+  const [sortField, setSortField] = useState<TableSortField | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc' | null>(null);
+
+  const handleSort = (field: TableSortField) => {
+    if (sortField !== field) {
+      setSortField(field);
+      setSortDirection('asc');
+    } else if (sortDirection === 'asc') {
+      setSortDirection('desc');
+    } else {
+      setSortField(null);
+      setSortDirection(null);
+    }
+  };
+
+  const localFilterState = useOperationalFilters(incidents);
+  const filterState = externalFilterState || localFilterState;
   const { filteredIncidents, searchQuery, setSearchQuery } = filterState;
 
   // Apply quick filter preset on top of the 6 operational filters
@@ -145,9 +177,134 @@ export default function IncidentsHighwayScreen({
     };
   }, [filteredList]);
 
-  const totalFiltered = filteredList.length;
+  // Dynamic 24-hour Infractions Curve (00h - 23h) based on filteredList
+  const hourlyCurve = useMemo(() => {
+    const counts = new Array(24).fill(0);
+    for (let i = 0; i < filteredList.length; i++) {
+      const inc = filteredList[i];
+      const h =
+        typeof inc.hour === 'number'
+          ? inc.hour
+          : parseInt((inc.time || '12:00').split(':')[0] || '12', 10);
+      if (h >= 0 && h < 24) {
+        counts[h] += 1;
+      }
+    }
+    const maxCount = Math.max(...counts, 1);
+    let peakHour = 0;
+    let peakCount = 0;
+
+    for (let h = 0; h < 24; h++) {
+      if (counts[h] > peakCount) {
+        peakCount = counts[h];
+        peakHour = h;
+      }
+    }
+
+    // Coordinates: viewBox="0 0 600 110"
+    // Baseline y=95, max height peak y=18
+    const points = counts.map((c, h) => {
+      const x = (h / 23) * 580 + 10;
+      const ratio = filteredList.length === 0 ? 0 : c / maxCount;
+      const y = 95 - ratio * 77;
+      return { x, y, count: c, hour: h };
+    });
+
+    // Catmull-Rom to Cubic Bezier curve
+    let d = `M ${points[0].x.toFixed(1)},${points[0].y.toFixed(1)}`;
+    for (let i = 0; i < points.length - 1; i++) {
+      const p0 = i > 0 ? points[i - 1] : points[i];
+      const p1 = points[i];
+      const p2 = points[i + 1];
+      const p3 = i < points.length - 2 ? points[i + 2] : p2;
+
+      const cp1x = p1.x + (p2.x - p0.x) / 6;
+      const cp1y = Math.min(95, Math.max(12, p1.y + (p2.y - p0.y) / 6));
+      const cp2x = p2.x - (p3.x - p1.x) / 6;
+      const cp2y = Math.min(95, Math.max(12, p2.y - (p3.y - p1.y) / 6));
+
+      d += ` C ${cp1x.toFixed(1)},${cp1y.toFixed(1)} ${cp2x.toFixed(1)},${cp2y.toFixed(1)} ${p2.x.toFixed(1)},${p2.y.toFixed(1)}`;
+    }
+
+    const areaD = `${d} L 590,110 L 10,110 Z`;
+
+    return {
+      counts,
+      peakHour,
+      peakCount,
+      points,
+      lineD: d,
+      areaD,
+    };
+  }, [filteredList]);
+
+  // Helper function to convert time string HH:MM:SS to total seconds for sorting
+  const parseTimeToSeconds = (timeStr?: string): number => {
+    if (!timeStr) return 0;
+    const parts = timeStr.split(':').map((p) => parseInt(p, 10));
+    if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    if (parts.length === 2) return parts[0] * 3600 + parts[1] * 60;
+    return 0;
+  };
+
+  // Sort filteredList dynamically according to user selection
+  const sortedList = useMemo(() => {
+    if (!sortField || !sortDirection) return filteredList;
+    const list = [...filteredList];
+    list.sort((a, b) => {
+      let cmp = 0;
+      switch (sortField) {
+        case 'code': {
+          const numA = parseInt(a.code.replace(/\D/g, ''), 10) || 0;
+          const numB = parseInt(b.code.replace(/\D/g, ''), 10) || 0;
+          cmp = numA - numB;
+          break;
+        }
+        case 'dateTime': {
+          const tsA = (parseDateBR(a.date) || 0) + parseTimeToSeconds(a.time);
+          const tsB = (parseDateBR(b.date) || 0) + parseTimeToSeconds(b.time);
+          cmp = tsA - tsB;
+          break;
+        }
+        case 'plate':
+          cmp = (a.plate || '').localeCompare(b.plate || '');
+          break;
+        case 'vehicleCategory':
+          cmp = (a.vehicleCategory || '').localeCompare(b.vehicleCategory || '');
+          break;
+        case 'driver': {
+          const nameA = a.hasDriver ? a.driver || '' : 'ZZZ';
+          const nameB = b.hasDriver ? b.driver || '' : 'ZZZ';
+          cmp = nameA.localeCompare(nameB);
+          break;
+        }
+        case 'speedLimit':
+          cmp = a.speedLimit - b.speedLimit;
+          break;
+        case 'recordedSpeed':
+          cmp = a.recordedSpeed - b.recordedSpeed;
+          break;
+        case 'deltaSpeed':
+          cmp = a.deltaSpeed - b.deltaSpeed;
+          break;
+        case 'duration':
+          cmp = (a.durationSeconds || 0) - (b.durationSeconds || 0);
+          break;
+        case 'severity':
+          cmp = (a.severityBand || 0) - (b.severityBand || 0);
+          break;
+        case 'highway':
+          cmp = (a.highway || '').localeCompare(b.highway || '');
+          break;
+      }
+      return sortDirection === 'asc' ? cmp : -cmp;
+    });
+    return list;
+  }, [filteredList, sortField, sortDirection]);
+
+  const totalFiltered = sortedList.length;
   const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSize));
-  const paginatedList = filteredList.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const paginatedList = sortedList.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const handleSync = () => {
     setIsSyncing(true);
@@ -499,7 +656,7 @@ export default function IncidentsHighwayScreen({
             </div>
           </div>
 
-          {/* SVG Telemetry Curve */}
+          {/* SVG Telemetry Curve - Dinâmica e responsiva ao filtro */}
           <div className="p-3 rounded-lg bg-[#0c1017] border border-[#283548] flex flex-col gap-2">
             <div className="flex items-center justify-between text-xs">
               <div className="flex items-center gap-1.5">
@@ -508,6 +665,11 @@ export default function IncidentsHighwayScreen({
                   CURVA HORÁRIA DE INFRAÇÕES (00H - 23H)
                 </span>
               </div>
+              {filteredList.length > 0 && (
+                <span className="font-tabular-data text-[10px] text-[#ef4444] font-bold bg-[#ef4444]/15 px-2 py-0.5 rounded border border-[#ef4444]/30">
+                  Pico {String(hourlyCurve.peakHour).padStart(2, '0')}h: {hourlyCurve.peakCount.toLocaleString('pt-BR')} excessos
+                </span>
+              )}
             </div>
 
             <div className="w-full h-28 relative">
@@ -525,25 +687,40 @@ export default function IncidentsHighwayScreen({
                 </defs>
 
                 <path
-                  d="M 0,95 C 40,92 70,80 110,22 C 122,12 138,15 155,48 C 180,85 210,82 245,46 C 262,24 278,25 295,48 C 320,78 350,80 380,50 C 405,28 435,32 465,58 C 495,82 530,90 600,94 L 600,110 L 0,110 Z"
+                  d={hourlyCurve.areaD}
                   fill="url(#casagrandeCurve)"
                 />
 
                 <path
-                  d="M 0,95 C 40,92 70,80 110,22 C 122,12 138,15 155,48 C 180,85 210,82 245,46 C 262,24 278,25 295,48 C 320,78 350,80 380,50 C 405,28 435,32 465,58 C 495,82 530,90 600,94"
+                  d={hourlyCurve.lineD}
                   stroke="#34b344"
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth="2.5"
                 />
+
+                {filteredList.length > 0 && hourlyCurve.peakCount > 0 && (
+                  <circle
+                    cx={hourlyCurve.points[hourlyCurve.peakHour].x}
+                    cy={hourlyCurve.points[hourlyCurve.peakHour].y}
+                    r="4"
+                    fill="#ef4444"
+                    stroke="#ffffff"
+                    strokeWidth="1.5"
+                  />
+                )}
               </svg>
             </div>
 
             <div className="grid grid-cols-7 font-tabular-data text-[9px] text-[#94a3b8] pt-1 border-t border-[#1c2432]">
               <span className="text-left text-[#64748b]">00:00</span>
-              <span className="text-center font-bold text-[#ef4444]">04:00</span>
+              <span className={`text-center font-bold ${hourlyCurve.peakHour >= 3 && hourlyCurve.peakHour <= 5 ? 'text-[#ef4444]' : 'text-[#94a3b8]'}`}>
+                04:00
+              </span>
               <span className="text-center text-[#94a3b8]">08:00</span>
-              <span className="text-center font-bold text-[#f59e0b]">11:00</span>
+              <span className={`text-center font-bold ${hourlyCurve.peakHour >= 10 && hourlyCurve.peakHour <= 12 ? 'text-[#f59e0b]' : 'text-[#94a3b8]'}`}>
+                11:00
+              </span>
               <span className="text-center text-[#94a3b8]">15:00</span>
               <span className="text-center text-[#94a3b8]">19:00</span>
               <span className="text-right text-[#64748b]">23:59</span>
@@ -606,17 +783,138 @@ export default function IncidentsHighwayScreen({
           <table className="w-full text-left font-tabular-data text-xs whitespace-nowrap min-w-[950px]">
             <thead>
               <tr className="bg-[#0c1017] text-[#94a3b8] text-[10px] tracking-wider uppercase border-b border-[#283548]">
-                <th className="py-2.5 px-3 font-bold">Nº</th>
-                <th className="py-2.5 px-3 font-bold">DATA E HORA</th>
-                <th className="py-2.5 px-3 font-bold">VEÍCULO (PLACA)</th>
-                <th className="py-2.5 px-3 font-bold">CATEGORIA</th>
-                <th className="py-2.5 px-3 font-bold">MOTORISTA</th>
-                <th className="py-2.5 px-3 font-bold text-center">LIMITE</th>
-                <th className="py-2.5 px-3 font-bold text-center">VEL. REGISTRADA</th>
-                <th className="py-2.5 px-3 font-bold text-right">ACIMA DO LIMITE</th>
-                <th className="py-2.5 px-3 font-bold text-center">TEMPO CORRENDO</th>
-                <th className="py-2.5 px-3 font-bold text-center">GRAVIDADE</th>
-                <th className="py-2.5 px-3 font-bold">LOCAL / RODOVIA</th>
+                <th
+                  onClick={() => handleSort('code')}
+                  className="py-2.5 px-3 font-bold cursor-pointer select-none hover:text-white transition-colors group"
+                  title="Ordenar por Nº (menor/maior)"
+                >
+                  <div className="flex items-center gap-1">
+                    <span>Nº</span>
+                    <span className={`text-[11px] font-normal transition-colors ${sortField === 'code' ? 'text-[#34b344] font-bold' : 'text-[#64748b] group-hover:text-white'}`}>
+                      {sortField === 'code' ? (sortDirection === 'asc' ? '↑' : '↓') : '⇅'}
+                    </span>
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('dateTime')}
+                  className="py-2.5 px-3 font-bold cursor-pointer select-none hover:text-white transition-colors group"
+                  title="Ordenar por Data e Hora (menor/maior)"
+                >
+                  <div className="flex items-center gap-1">
+                    <span>DATA E HORA</span>
+                    <span className={`text-[11px] font-normal transition-colors ${sortField === 'dateTime' ? 'text-[#34b344] font-bold' : 'text-[#64748b] group-hover:text-white'}`}>
+                      {sortField === 'dateTime' ? (sortDirection === 'asc' ? '↑' : '↓') : '⇅'}
+                    </span>
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('plate')}
+                  className="py-2.5 px-3 font-bold cursor-pointer select-none hover:text-white transition-colors group"
+                  title="Ordenar por Veículo (Placa) (A-Z / Z-A)"
+                >
+                  <div className="flex items-center gap-1">
+                    <span>VEÍCULO (PLACA)</span>
+                    <span className={`text-[11px] font-normal transition-colors ${sortField === 'plate' ? 'text-[#34b344] font-bold' : 'text-[#64748b] group-hover:text-white'}`}>
+                      {sortField === 'plate' ? (sortDirection === 'asc' ? '↑' : '↓') : '⇅'}
+                    </span>
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('vehicleCategory')}
+                  className="py-2.5 px-3 font-bold cursor-pointer select-none hover:text-white transition-colors group"
+                  title="Ordenar por Categoria / Tipo de Veículo (A-Z / Z-A)"
+                >
+                  <div className="flex items-center gap-1">
+                    <span>CATEGORIA</span>
+                    <span className={`text-[11px] font-normal transition-colors ${sortField === 'vehicleCategory' ? 'text-[#34b344] font-bold' : 'text-[#64748b] group-hover:text-white'}`}>
+                      {sortField === 'vehicleCategory' ? (sortDirection === 'asc' ? '↑' : '↓') : '⇅'}
+                    </span>
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('driver')}
+                  className="py-2.5 px-3 font-bold cursor-pointer select-none hover:text-white transition-colors group"
+                  title="Ordenar por Motorista (A-Z / Z-A)"
+                >
+                  <div className="flex items-center gap-1">
+                    <span>MOTORISTA</span>
+                    <span className={`text-[11px] font-normal transition-colors ${sortField === 'driver' ? 'text-[#34b344] font-bold' : 'text-[#64748b] group-hover:text-white'}`}>
+                      {sortField === 'driver' ? (sortDirection === 'asc' ? '↑' : '↓') : '⇅'}
+                    </span>
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('speedLimit')}
+                  className="py-2.5 px-3 font-bold text-center cursor-pointer select-none hover:text-white transition-colors group"
+                  title="Ordenar por Limite da Via (menor/maior)"
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    <span>LIMITE</span>
+                    <span className={`text-[11px] font-normal transition-colors ${sortField === 'speedLimit' ? 'text-[#34b344] font-bold' : 'text-[#64748b] group-hover:text-white'}`}>
+                      {sortField === 'speedLimit' ? (sortDirection === 'asc' ? '↑' : '↓') : '⇅'}
+                    </span>
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('recordedSpeed')}
+                  className="py-2.5 px-3 font-bold text-center cursor-pointer select-none hover:text-white transition-colors group"
+                  title="Ordenar por Vel. Registrada / Velocidade Atingida (menor/maior)"
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    <span>VEL. REGISTRADA</span>
+                    <span className={`text-[11px] font-normal transition-colors ${sortField === 'recordedSpeed' ? 'text-[#34b344] font-bold' : 'text-[#64748b] group-hover:text-white'}`}>
+                      {sortField === 'recordedSpeed' ? (sortDirection === 'asc' ? '↑' : '↓') : '⇅'}
+                    </span>
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('deltaSpeed')}
+                  className="py-2.5 px-3 font-bold text-right cursor-pointer select-none hover:text-white transition-colors group"
+                  title="Ordenar por Acima do Limite (menor/maior)"
+                >
+                  <div className="flex items-center justify-end gap-1">
+                    <span>ACIMA DO LIMITE</span>
+                    <span className={`text-[11px] font-normal transition-colors ${sortField === 'deltaSpeed' ? 'text-[#34b344] font-bold' : 'text-[#64748b] group-hover:text-white'}`}>
+                      {sortField === 'deltaSpeed' ? (sortDirection === 'asc' ? '↑' : '↓') : '⇅'}
+                    </span>
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('duration')}
+                  className="py-2.5 px-3 font-bold text-center cursor-pointer select-none hover:text-white transition-colors group"
+                  title="Ordenar por Tempo Correndo / Duração (menor/maior)"
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    <span>TEMPO CORRENDO</span>
+                    <span className={`text-[11px] font-normal transition-colors ${sortField === 'duration' ? 'text-[#34b344] font-bold' : 'text-[#64748b] group-hover:text-white'}`}>
+                      {sortField === 'duration' ? (sortDirection === 'asc' ? '↑' : '↓') : '⇅'}
+                    </span>
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('severity')}
+                  className="py-2.5 px-3 font-bold text-center cursor-pointer select-none hover:text-white transition-colors group"
+                  title="Ordenar por Gravidade (menor/maior)"
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    <span>GRAVIDADE</span>
+                    <span className={`text-[11px] font-normal transition-colors ${sortField === 'severity' ? 'text-[#34b344] font-bold' : 'text-[#64748b] group-hover:text-white'}`}>
+                      {sortField === 'severity' ? (sortDirection === 'asc' ? '↑' : '↓') : '⇅'}
+                    </span>
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('highway')}
+                  className="py-2.5 px-3 font-bold cursor-pointer select-none hover:text-white transition-colors group"
+                  title="Ordenar por Local / Rodovia (A-Z / Z-A)"
+                >
+                  <div className="flex items-center gap-1">
+                    <span>LOCAL / RODOVIA</span>
+                    <span className={`text-[11px] font-normal transition-colors ${sortField === 'highway' ? 'text-[#34b344] font-bold' : 'text-[#64748b] group-hover:text-white'}`}>
+                      {sortField === 'highway' ? (sortDirection === 'asc' ? '↑' : '↓') : '⇅'}
+                    </span>
+                  </div>
+                </th>
                 <th className="py-2.5 px-3 font-bold text-center">AÇÕES</th>
               </tr>
             </thead>

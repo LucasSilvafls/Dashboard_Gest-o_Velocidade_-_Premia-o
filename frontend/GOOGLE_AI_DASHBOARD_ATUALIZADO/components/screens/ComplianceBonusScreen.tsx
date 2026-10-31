@@ -8,23 +8,53 @@ import {
   Incident,
 } from '@/lib/telemetry-data';
 import { filterDrivers, convertToCSV, isHeavyVehicleCategory } from '@/lib/telemetry-rules';
-import { OperationalFilterBar, useOperationalFilters } from '@/components/OperationalFilterBar';
+import { OperationalFilterBar, useOperationalFilters, OperationalFilterState } from '@/components/OperationalFilterBar';
 
 interface ComplianceBonusScreenProps {
   onSelectDriver: (driver: DriverScore) => void;
   drivers?: DriverScore[];
   incidents?: Incident[];
+  filterState?: OperationalFilterState;
 }
 
 export default function ComplianceBonusScreen({
   onSelectDriver,
   drivers = INITIAL_DRIVERS,
   incidents = INITIAL_INCIDENTS,
+  filterState: externalFilterState,
 }: ComplianceBonusScreenProps) {
   const [filterType, setFilterType] = useState<'TODOS' | 'APTOS' | 'INAPTOS'>('TODOS');
   const [isSyncing, setIsSyncing] = useState(false);
 
-  const filterState = useOperationalFilters(incidents);
+  // Sorting state for table columns
+  type DriverSortField =
+    | 'status'
+    | 'name'
+    | 'plate'
+    | 'limitSpeed'
+    | 'maxSpeed'
+    | 'deltaSpeed'
+    | 'totalAlerts'
+    | 'violationsAbove80'
+    | 'worstEventLocation';
+
+  const [sortField, setSortField] = useState<DriverSortField | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc' | null>(null);
+
+  const handleSort = (field: DriverSortField) => {
+    if (sortField !== field) {
+      setSortField(field);
+      setSortDirection('asc');
+    } else if (sortDirection === 'asc') {
+      setSortDirection('desc');
+    } else {
+      setSortField(null);
+      setSortDirection(null);
+    }
+  };
+
+  const localFilterState = useOperationalFilters(incidents);
+  const filterState = externalFilterState || localFilterState;
   const { filteredIncidents, searchQuery, setSearchQuery } = filterState;
 
   // Dynamically compute DriverScore[] from filteredIncidents (or fallback to INITIAL_DRIVERS)
@@ -183,6 +213,46 @@ export default function ComplianceBonusScreen({
   const filteredDrivers = useMemo(() => {
     return filterDrivers(computedDrivers, filterType, searchQuery);
   }, [computedDrivers, filterType, searchQuery]);
+
+  // Dynamic sorting for driver table
+  const sortedDrivers = useMemo(() => {
+    if (!sortField || !sortDirection) return filteredDrivers;
+    const list = [...filteredDrivers];
+    list.sort((a, b) => {
+      let cmp = 0;
+      switch (sortField) {
+        case 'status':
+          cmp = (a.status || '').localeCompare(b.status || '');
+          break;
+        case 'name':
+          cmp = (a.name || '').localeCompare(b.name || '');
+          break;
+        case 'plate':
+          cmp = (a.plate || '').localeCompare(b.plate || '');
+          break;
+        case 'limitSpeed':
+          cmp = a.limitSpeed - b.limitSpeed;
+          break;
+        case 'maxSpeed':
+          cmp = a.maxSpeed - b.maxSpeed;
+          break;
+        case 'deltaSpeed':
+          cmp = a.deltaSpeed - b.deltaSpeed;
+          break;
+        case 'totalAlerts':
+          cmp = a.totalAlerts - b.totalAlerts;
+          break;
+        case 'violationsAbove80':
+          cmp = a.violationsAbove80 - b.violationsAbove80;
+          break;
+        case 'worstEventLocation':
+          cmp = (a.worstEventLocation || '').localeCompare(b.worstEventLocation || '');
+          break;
+      }
+      return sortDirection === 'asc' ? cmp : -cmp;
+    });
+    return list;
+  }, [filteredDrivers, sortField, sortDirection]);
 
   const handleSync = () => {
     setIsSyncing(true);
@@ -709,20 +779,119 @@ export default function ComplianceBonusScreen({
           <table className="w-full text-left font-tabular-data text-xs whitespace-nowrap min-w-[750px]">
             <thead>
               <tr className="bg-[#0c1017] text-[#94a3b8] text-[10px] tracking-wider uppercase border-b border-[#283548]">
-                <th className="py-2.5 px-3 font-bold text-center">STATUS PREMIAÇÃO</th>
-                <th className="py-2.5 px-3 font-bold">MOTORISTA IDENTIFICADO</th>
-                <th className="py-2.5 px-3 font-bold">VEÍCULO / PLACA</th>
-                <th className="py-2.5 px-3 font-bold text-center">LIMITE TETO</th>
-                <th className="py-2.5 px-3 font-bold text-center">VEL. MÁXIMA</th>
-                <th className="py-2.5 px-3 font-bold text-right">DELTA TETO</th>
-                <th className="py-2.5 px-3 font-bold text-center">TOTAL ALERTAS</th>
-                <th className="py-2.5 px-3 font-bold text-center">VIOLAÇÕES (&gt;80)</th>
-                <th className="py-2.5 px-3 font-bold">PIOR REGISTRO EM</th>
+                <th
+                  onClick={() => handleSort('status')}
+                  className="py-2.5 px-3 font-bold text-center cursor-pointer select-none hover:text-white transition-colors group"
+                  title="Ordenar por Status Premiação (menor/maior)"
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    <span>STATUS PREMIAÇÃO</span>
+                    <span className={`text-[11px] font-normal transition-colors ${sortField === 'status' ? 'text-[#34b344] font-bold' : 'text-[#64748b] group-hover:text-white'}`}>
+                      {sortField === 'status' ? (sortDirection === 'asc' ? '↑' : '↓') : '⇅'}
+                    </span>
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('name')}
+                  className="py-2.5 px-3 font-bold cursor-pointer select-none hover:text-white transition-colors group"
+                  title="Ordenar por Motorista (A-Z / Z-A)"
+                >
+                  <div className="flex items-center gap-1">
+                    <span>MOTORISTA IDENTIFICADO</span>
+                    <span className={`text-[11px] font-normal transition-colors ${sortField === 'name' ? 'text-[#34b344] font-bold' : 'text-[#64748b] group-hover:text-white'}`}>
+                      {sortField === 'name' ? (sortDirection === 'asc' ? '↑' : '↓') : '⇅'}
+                    </span>
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('plate')}
+                  className="py-2.5 px-3 font-bold cursor-pointer select-none hover:text-white transition-colors group"
+                  title="Ordenar por Veículo / Placa (A-Z / Z-A)"
+                >
+                  <div className="flex items-center gap-1">
+                    <span>VEÍCULO / PLACA</span>
+                    <span className={`text-[11px] font-normal transition-colors ${sortField === 'plate' ? 'text-[#34b344] font-bold' : 'text-[#64748b] group-hover:text-white'}`}>
+                      {sortField === 'plate' ? (sortDirection === 'asc' ? '↑' : '↓') : '⇅'}
+                    </span>
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('limitSpeed')}
+                  className="py-2.5 px-3 font-bold text-center cursor-pointer select-none hover:text-white transition-colors group"
+                  title="Ordenar por Limite Teto (menor/maior)"
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    <span>LIMITE TETO</span>
+                    <span className={`text-[11px] font-normal transition-colors ${sortField === 'limitSpeed' ? 'text-[#34b344] font-bold' : 'text-[#64748b] group-hover:text-white'}`}>
+                      {sortField === 'limitSpeed' ? (sortDirection === 'asc' ? '↑' : '↓') : '⇅'}
+                    </span>
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('maxSpeed')}
+                  className="py-2.5 px-3 font-bold text-center cursor-pointer select-none hover:text-white transition-colors group"
+                  title="Ordenar por Vel. Máxima (menor/maior)"
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    <span>VEL. MÁXIMA</span>
+                    <span className={`text-[11px] font-normal transition-colors ${sortField === 'maxSpeed' ? 'text-[#34b344] font-bold' : 'text-[#64748b] group-hover:text-white'}`}>
+                      {sortField === 'maxSpeed' ? (sortDirection === 'asc' ? '↑' : '↓') : '⇅'}
+                    </span>
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('deltaSpeed')}
+                  className="py-2.5 px-3 font-bold text-right cursor-pointer select-none hover:text-white transition-colors group"
+                  title="Ordenar por Delta Teto (menor/maior)"
+                >
+                  <div className="flex items-center justify-end gap-1">
+                    <span>DELTA TETO</span>
+                    <span className={`text-[11px] font-normal transition-colors ${sortField === 'deltaSpeed' ? 'text-[#34b344] font-bold' : 'text-[#64748b] group-hover:text-white'}`}>
+                      {sortField === 'deltaSpeed' ? (sortDirection === 'asc' ? '↑' : '↓') : '⇅'}
+                    </span>
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('totalAlerts')}
+                  className="py-2.5 px-3 font-bold text-center cursor-pointer select-none hover:text-white transition-colors group"
+                  title="Ordenar por Total Alertas (menor/maior)"
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    <span>TOTAL ALERTAS</span>
+                    <span className={`text-[11px] font-normal transition-colors ${sortField === 'totalAlerts' ? 'text-[#34b344] font-bold' : 'text-[#64748b] group-hover:text-white'}`}>
+                      {sortField === 'totalAlerts' ? (sortDirection === 'asc' ? '↑' : '↓') : '⇅'}
+                    </span>
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('violationsAbove80')}
+                  className="py-2.5 px-3 font-bold text-center cursor-pointer select-none hover:text-white transition-colors group"
+                  title="Ordenar por Violações (>80) (menor/maior)"
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    <span>VIOLAÇÕES (&gt;80)</span>
+                    <span className={`text-[11px] font-normal transition-colors ${sortField === 'violationsAbove80' ? 'text-[#34b344] font-bold' : 'text-[#64748b] group-hover:text-white'}`}>
+                      {sortField === 'violationsAbove80' ? (sortDirection === 'asc' ? '↑' : '↓') : '⇅'}
+                    </span>
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('worstEventLocation')}
+                  className="py-2.5 px-3 font-bold cursor-pointer select-none hover:text-white transition-colors group"
+                  title="Ordenar por Pior Registro Em (A-Z / Z-A)"
+                >
+                  <div className="flex items-center gap-1">
+                    <span>PIOR REGISTRO EM</span>
+                    <span className={`text-[11px] font-normal transition-colors ${sortField === 'worstEventLocation' ? 'text-[#34b344] font-bold' : 'text-[#64748b] group-hover:text-white'}`}>
+                      {sortField === 'worstEventLocation' ? (sortDirection === 'asc' ? '↑' : '↓') : '⇅'}
+                    </span>
+                  </div>
+                </th>
                 <th className="py-2.5 px-3 font-bold text-center">AÇÕES</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#283548]">
-              {filteredDrivers.map((item) => (
+              {sortedDrivers.map((item) => (
                 <tr
                   key={`${item.name}-${item.rank}`}
                   className={`hover:bg-[#1c2432]/70 transition-colors ${
