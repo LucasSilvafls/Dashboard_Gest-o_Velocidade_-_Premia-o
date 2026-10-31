@@ -1,21 +1,63 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import {
   CASAGRANDE_LOGO_DARK_URL,
-  CASAGRANDE_LOGO_LIGHT_URL,
 } from '@/components/Sidebar';
+import {
+  fetchTelemetrySummaryStats,
+  TelemetrySummaryStats,
+} from '@/lib/telemetry-service';
 
 interface TelemetryPreloaderProps {
   statusText?: string;
   subText?: string;
+  stats?: TelemetrySummaryStats | null;
 }
 
 export default function TelemetryPreloader({
   statusText = 'Sincronizando Telemetria da Frota...',
-  subText = 'Consolidando 9.051 excessos de velocidade, apuração SESMT e conformidade operacional',
+  subText,
+  stats,
 }: TelemetryPreloaderProps) {
+  const [liveStats, setLiveStats] = useState<TelemetrySummaryStats | null>(stats || null);
+
+  useEffect(() => {
+    if (stats) {
+      setLiveStats(stats);
+      return;
+    }
+    let active = true;
+    fetchTelemetrySummaryStats()
+      .then((data) => {
+        if (active && data) {
+          setLiveStats(data);
+        }
+      })
+      .catch((err) => {
+        console.warn('Erro ao carregar estatísticas no preloader:', err);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [stats]);
+
+  const totalVelText = liveStats
+    ? liveStats.totalVelocidade.toLocaleString('pt-BR')
+    : null;
+  const totalRegText = liveStats
+    ? `${liveStats.totalAlertas.toLocaleString('pt-BR')} registros`
+    : null;
+  const veiculosCount = liveStats?.totalVeiculos ?? 37;
+
+  const dynamicSubText = liveStats
+    ? `Consolidando ${totalVelText} excessos de velocidade (${totalRegText}), apuração SESMT e conformidade dos ${veiculosCount} veículos`
+    : 'Conectando ao Supabase e sincronizando registros de telemetria da frota em tempo real...';
+
+  const finalSubText = subText ?? dynamicSubText;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#090d14] text-[#f1f5f9] select-none overflow-hidden">
       {/* Background Ambient Glow */}
@@ -56,7 +98,7 @@ export default function TelemetryPreloader({
           {statusText}
         </h3>
         <p className="text-xs text-[#94a3b8] mt-2 max-w-[340px] leading-relaxed">
-          {subText}
+          {finalSubText}
         </p>
 
         {/* High-tech Progress Bar */}
@@ -77,7 +119,7 @@ export default function TelemetryPreloader({
         <div className="mt-6 pt-5 border-t border-[#283548] w-full flex items-center justify-center gap-4 text-[11px] text-[#94a3b8]">
           <span className="flex items-center gap-1.5">
             <span className="material-symbols-outlined text-[#34b344] text-[16px]">verified</span>
-            35 Veículos
+            {liveStats ? `${liveStats.totalVeiculos} Veículos` : `${veiculosCount} Veículos`}
           </span>
           <span className="h-3 w-px bg-[#283548]" />
           <span className="flex items-center gap-1.5">

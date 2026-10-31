@@ -190,7 +190,7 @@ export default function ExecutiveSummaryScreen({
       const f3 = Math.round((d.b3 / tot) * 100);
       const f2 = Math.round((d.b2 / tot) * 100);
       const f1 = Math.max(0, 100 - f3 - f2);
-      const heightPct = Math.max(10, Math.round((d.total / maxTotal) * 95));
+      const heightPct = Math.max(8, Math.round((d.total / maxTotal) * 80));
       return {
         day: d.date.slice(0, 5), // DD/MM
         fullDate: d.date,
@@ -253,11 +253,11 @@ export default function ExecutiveSummaryScreen({
         peakCount = count;
         peakHour = hourStr;
       }
-      const val = Math.round((count / maxCount) * 92);
+      const val = Math.round((count / maxCount) * 80);
       return {
         hour: hourStr,
         val,
-        h: `${Math.max(count > 0 ? 5 : 1, val)}%`,
+        h: `${Math.max(count > 0 ? 6 : 2, val)}%`,
         count,
         isPeak: false,
       };
@@ -568,15 +568,32 @@ export default function ExecutiveSummaryScreen({
                           {item.fullDate}: {item.total} alertas
                         </div>
                       )}
+                      <span
+                        className={`text-[7.5px] sm:text-[9px] font-mono mb-1 leading-none text-center select-none truncate max-w-full ${
+                          filterState.specificDay === item.fullDate
+                            ? 'text-[#34b344] font-bold'
+                            : 'text-[#94a3b8] group-hover:text-white'
+                        }`}
+                      >
+                        {item.total > 0 ? item.total.toLocaleString('pt-BR') : ''}
+                      </span>
                       <div
-                        className="w-full rounded-t-sm flex flex-col justify-end overflow-hidden transition-all group-hover:scale-105"
+                        className={`w-full rounded-t-sm flex flex-col justify-end overflow-hidden transition-all group-hover:scale-105 ${
+                          filterState.specificDay === item.fullDate ? 'ring-2 ring-[#34b344]' : ''
+                        }`}
                         style={{ height: item.height }}
                       >
                         <div className="w-full bg-[#ef4444]" style={{ height: `${item.f3}%` }} />
                         <div className="w-full bg-[#f59e0b]" style={{ height: `${item.f2}%` }} />
                         <div className="w-full bg-[#34b344]" style={{ height: `${item.f1}%` }} />
                       </div>
-                      <span className="text-[8px] font-tabular-data text-[#94a3b8] mt-1 truncate max-w-full">
+                      <span
+                        className={`text-[8px] font-tabular-data mt-1 truncate max-w-full ${
+                          filterState.specificDay === item.fullDate
+                            ? 'text-[#34b344] font-bold'
+                            : 'text-[#94a3b8]'
+                        }`}
+                      >
                         {item.day.slice(0, 2)}
                       </span>
                     </div>
@@ -698,6 +715,17 @@ export default function ExecutiveSummaryScreen({
                     <div className="opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 z-30 px-1.5 py-0.5 rounded bg-[#1e293b] border border-[#475569] text-white text-[9px] font-tabular-data whitespace-nowrap shadow-lg">
                       {col.hour}h: <span className="font-bold text-[#34b344]">{col.count}</span> ({idx + 1}º)
                     </div>
+                    <span
+                      className={`text-[7.5px] sm:text-[9px] font-mono mb-1 leading-none text-center select-none truncate max-w-full ${
+                        col.isPeak
+                          ? 'text-[#ef4444] font-bold'
+                          : col.val >= 50
+                            ? 'text-[#f59e0b]'
+                            : 'text-[#94a3b8] group-hover:text-white'
+                      }`}
+                    >
+                      {col.count > 0 ? col.count.toLocaleString('pt-BR') : ''}
+                    </span>
                     <div
                       className={`w-full rounded-t-sm transition-all group-hover:brightness-125 ${
                         col.isPeak ? 'shadow-[0_0_8px_rgba(239,68,68,0.5)]' : ''

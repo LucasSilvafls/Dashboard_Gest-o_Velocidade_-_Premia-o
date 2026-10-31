@@ -416,10 +416,10 @@ export async function fetchTelemetrySummaryStats(): Promise<TelemetrySummaryStat
       .select('*', { count: 'exact', head: true })
       .in('tipo', ['EXCESSO_VELOCIDADE', 'EXCESSO_VELOCIDADE_POR_VIA']);
 
-    const semId = totalSemId ?? 3992;
-    const graves = totalGraves ?? 1765;
-    const eventos = totalEventos || 16068;
-    const velocidade = totalVelocidade ?? 9051;
+    const semId = totalSemId ?? 0;
+    const graves = totalGraves ?? 0;
+    const eventos = totalEventos || 17956;
+    const velocidade = totalVelocidade ?? 10062;
 
     // 7. Consulta dinâmica da primeira e última data existentes no banco de dados
     let periodoDinamico = '26/09 a 25/10/2026';
@@ -452,21 +452,21 @@ export async function fetchTelemetrySummaryStats(): Promise<TelemetrySummaryStat
     return {
       totalAlertas: eventos,
       totalVelocidade: velocidade,
-      totalVeiculos: totalVeiculos ?? 36,
+      totalVeiculos: totalVeiculos ?? 37,
       totalMotoristas: totalMotoristas ?? 21,
       periodo: periodoDinamico,
       mediaDelta: 14.5,
       totalOcorrenciasGraves: graves,
-      percentualGraves: Number(((graves / eventos) * 100).toFixed(1)),
+      percentualGraves: eventos > 0 ? Number(((graves / eventos) * 100).toFixed(1)) : 0,
       semIdentificacao: semId,
-      percentualSemId: Number(((semId / eventos) * 100).toFixed(1)),
+      percentualSemId: eventos > 0 ? Number(((semId / eventos) * 100).toFixed(1)) : 0,
     };
   } catch (err) {
     console.warn('Usando estatísticas locais de fallback:', err);
     return {
-      totalAlertas: 16068,
-      totalVelocidade: 9051,
-      totalVeiculos: 35,
+      totalAlertas: 17956,
+      totalVelocidade: 10062,
+      totalVeiculos: 37,
       totalMotoristas: 21,
       periodo: '26/09 a 25/10/2026',
       mediaDelta: 14.5,

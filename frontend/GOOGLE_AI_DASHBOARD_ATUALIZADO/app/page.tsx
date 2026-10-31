@@ -267,6 +267,15 @@ export default function Home() {
   useEffect(() => {
     let isCancelled = false;
 
+    // 1. Busca rápida de estatísticas para alimentar imediatamente o preloader com dados do Supabase
+    fetchTelemetrySummaryStats()
+      .then((quickStats) => {
+        if (!isCancelled && quickStats) {
+          setStats(quickStats);
+        }
+      })
+      .catch((err) => console.warn('Erro ao carregar estatísticas rápidas do Supabase:', err));
+
     void (async () => {
       try {
         const [fetchedStats, fetchedIncidents, fetchedDrivers, fetchedLogs] = await Promise.all([
@@ -546,7 +555,7 @@ export default function Home() {
     return (
       <TelemetryPreloader
         statusText="Sincronizando Telemetria da Frota CSG..."
-        subText="Consolidando 9.051 excessos de velocidade, apuração SESMT e conformidade dos 35 veículos"
+        stats={stats}
       />
     );
   }
