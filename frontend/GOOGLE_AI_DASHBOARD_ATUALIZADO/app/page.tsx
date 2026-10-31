@@ -65,46 +65,11 @@ function createAuditLogEntry(action: string, operator = 'Operador CCO (admin)', 
 }
 
 export default function Home() {
-  // Autenticação e Gestão de Sessão Corporativa (Leitura instantânea de cache)
-  const [currentUser, setCurrentUser] = useState<AuthenticatedUser | null>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const stored = localStorage.getItem('csg_session_user_v1');
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          if (parsed && parsed.username) return parsed;
-        }
-      } catch {}
-    }
-    return null;
-  });
-
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const stored = localStorage.getItem('csg_session_user_v1');
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          if (parsed && parsed.username) return true;
-        }
-      } catch {}
-    }
-    return false;
-  });
-
-  const [isCheckingSession, setIsCheckingSession] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const stored = localStorage.getItem('csg_session_user_v1');
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          if (parsed && parsed.username) return false;
-        }
-      } catch {}
-    }
-    return true;
-  });
-
+  // Autenticação e Gestão de Sessão Corporativa
+  const [mounted, setMounted] = useState<boolean>(false);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [currentUser, setCurrentUser] = useState<AuthenticatedUser | null>(null);
+  const [isCheckingSession, setIsCheckingSession] = useState<boolean>(true);
   const [isFirstAccessModalOpen, setIsFirstAccessModalOpen] = useState<boolean>(false);
 
   // Pré-carregador telemétrico: previne exibição de métricas mock ou travamentos iniciais
@@ -193,6 +158,7 @@ export default function Home() {
 
   // 1. Verificação de Sessão Inicial (LocalStorage + Supabase Auth com timeout de segurança)
   useEffect(() => {
+    setMounted(true);
     let isCancelled = false;
 
     // Timeout de segurança absoluto: nunca deixe o usuário preso por mais de 500ms
@@ -587,12 +553,13 @@ export default function Home() {
     showToast(`Parâmetros e regras salvos com sucesso! Bonificação: R$ ${baseBonus}`);
   };
 
-  // 1. Enquanto checa sessão inicial do navegador
-  if (isCheckingSession) {
+  // 1. Enquanto não montado no cliente ou enquanto checa sessão inicial do navegador
+  if (!mounted || isCheckingSession) {
     return (
       <TelemetryPreloader
-        statusText="Validando Sessão Operacional CCO..."
-        subText="Verificando credenciais e integridade com o Supabase"
+        statusText="Sincronizando Telemetria da Frota CSG..."
+        subText="Verificando credenciais e integridade com o Supabase..."
+        stats={stats}
       />
     );
   }
