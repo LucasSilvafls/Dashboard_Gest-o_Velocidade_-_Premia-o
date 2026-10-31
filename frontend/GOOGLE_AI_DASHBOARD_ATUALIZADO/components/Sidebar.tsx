@@ -43,6 +43,7 @@ interface SidebarProps {
   onSelectScreen: (screen: ScreenId) => void;
   onOpenProfile: () => void;
   onLogout?: () => void;
+  user?: { name: string; username: string } | null;
   stats?: {
     totalAlertas: number;
     totalVelocidade: number;
@@ -132,18 +133,21 @@ function CasagrandeBrandMark() {
 function CasagrandeUserFooter({
   onOpenProfile,
   onLogout,
+  user,
 }: {
   onOpenProfile: () => void;
   onLogout?: () => void;
+  user?: { name: string; username: string } | null;
 }) {
   const { collapsed } = useSidebar();
+  const displayName = user?.name || 'Administrador CCO';
   return (
     <div
       className={`flex w-full items-center cursor-pointer group ${
         collapsed ? 'justify-center' : 'gap-2.5 justify-between min-w-0'
       }`}
       onClick={onOpenProfile}
-      title="Perfil CCO Administrador"
+      title={`Perfil CCO (${displayName})`}
     >
       <div className="flex items-center gap-2.5 min-w-0">
         <div className="relative shrink-0">
@@ -155,7 +159,7 @@ function CasagrandeUserFooter({
         {!collapsed && (
           <div className="min-w-0 flex-1">
             <div className="truncate text-[12px] font-semibold text-white leading-tight">
-              Administrador CCO
+              {displayName}
             </div>
             <div className="truncate text-[10px] font-tabular-data text-[#34b344] font-bold leading-tight mt-0.5">
               SISTEMA ONLINE
@@ -190,6 +194,7 @@ export default function Sidebar({
   onSelectScreen,
   onOpenProfile,
   onLogout,
+  user,
   stats,
 }: SidebarProps) {
   const handleItemClick = (id: ScreenId) => {
@@ -283,7 +288,7 @@ export default function Sidebar({
           </SidebarNav>
 
           <SidebarFooter>
-            <CasagrandeUserFooter onOpenProfile={onOpenProfile} onLogout={onLogout} />
+            <CasagrandeUserFooter onOpenProfile={onOpenProfile} onLogout={onLogout} user={user} />
           </SidebarFooter>
         </BaseSidebar>
       </div>

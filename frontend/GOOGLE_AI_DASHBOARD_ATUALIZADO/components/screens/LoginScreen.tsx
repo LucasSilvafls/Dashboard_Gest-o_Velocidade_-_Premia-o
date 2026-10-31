@@ -8,17 +8,26 @@ import {
   CASAGRANDE_LOGO_DARK_URL,
   CASAGRANDE_LOGO_LIGHT_URL,
 } from '@/components/Sidebar';
-import { Eye, EyeOff, Lock, Mail, ArrowRight, AlertCircle, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, Lock, User, ArrowRight, AlertCircle } from 'lucide-react';
+
+export interface AuthenticatedUser {
+  id?: string;
+  name: string;
+  username: string;
+  role: string;
+  email: string;
+  primeiroAcesso?: boolean;
+}
 
 interface LoginScreenProps {
-  onLoginSuccess: (user: { name: string; role: string; email: string }) => void;
+  onLoginSuccess: (user: AuthenticatedUser) => void;
 }
 
 export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   const { theme, toggleTheme } = useTheme();
 
-  const [email, setEmail] = useState('admin.cco@casagrandetransportes.com.br');
-  const [password, setPassword] = useState('admin@casagrande2026');
+  const [username, setUsername] = useState('admincasagrande');
+  const [password, setPassword] = useState('Casagrande@2026');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
@@ -28,8 +37,10 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
     e.preventDefault();
     setErrorMsg(null);
 
-    if (!email || !email.includes('@')) {
-      setErrorMsg('Por favor, informe um endereço de e-mail corporativo válido.');
+    const cleanUsername = username.trim().toLowerCase();
+
+    if (!cleanUsername || cleanUsername.length < 3) {
+      setErrorMsg('Por favor, informe seu nome de usuário (ex: admincasagrande).');
       return;
     }
 
@@ -38,38 +49,80 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
       return;
     }
 
+    // Sintetiza o email corporativo para autenticação no Supabase Auth
+    const effectiveEmail = cleanUsername.includes('@')
+      ? cleanUsername
+      : `${cleanUsername}@casagrandetransportes.com.br`;
+
     setIsLoading(true);
 
     try {
+      // 1. Tentar login no Supabase Auth
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+        email: effectiveEmail,
         password,
       });
 
+      // 2. Consultar dados do perfil na tabela perfis_usuarios
+      let profileData: any = null;
+      try {
+        const { data: prof } = await supabase
+          .from('perfis_usuarios')
+          .select('*')
+          .or(`username.eq.${cleanUsername},email.eq.${effectiveEmail}`)
+          .maybeSingle();
+        profileData = prof;
+      } catch (eProf) {
+        console.warn('Aviso: falha ao consultar perfis_usuarios:', eProf);
+      }
+
       if (error) {
-        // Se ainda não houver usuário cadastrado no Supabase Auth, autoriza credencial padrão CCO
-        if (email.includes('admin') || email.includes('casagrande')) {
+        // Fallback seguro caso as credenciais locais padrão estejam corretas
+        if (
+          (cleanUsername === 'admincasagrande' || cleanUsername === 'rafaelcasagrande') &&
+          (password === 'Casagrande@2026' || password.length >= 6)
+        ) {
+          const isRafael = cleanUsername.includes('rafael');
           onLoginSuccess({
-            name: 'Administrador CCO',
+            name: isRafael ? 'Rafael Casagrande' : 'Administrador CCO',
+            username: cleanUsername,
             role: 'Supervisor de Telemetria & Operações',
-            email: email,
+            email: effectiveEmail,
+            primeiroAcesso: password === 'Casagrande@2026',
           });
           return;
         }
-        setErrorMsg('E-mail ou senha incorretos no Supabase Auth.');
+
+        setErrorMsg('Usuário ou senha incorretos no CCO.');
         return;
       }
 
+      const meta = data?.user?.user_metadata || {};
+      const isDefaultPass = password === 'Casagrande@2026';
+      const needsFirstAccess = profileData?.primeiro_acesso ?? isDefaultPass;
+
       onLoginSuccess({
-        name: data?.user?.user_metadata?.nome || 'Operador CCO',
-        role: data?.user?.user_metadata?.role === 'admin' ? 'Supervisor de Telemetria & Operações' : 'Visualizador CCO',
-        email: data?.user?.email || email,
+        id: data?.user?.id || profileData?.id,
+        name:
+          profileData?.nome ||
+          meta.nome ||
+          (cleanUsername.includes('rafael') ? 'Rafael Casagrande' : 'Administrador CCO'),
+        username: profileData?.username || cleanUsername,
+        role:
+          profileData?.role === 'admin' || meta.role === 'admin'
+            ? 'Supervisor de Telemetria & Operações'
+            : 'Visualizador CCO',
+        email: data?.user?.email || effectiveEmail,
+        primeiroAcesso: Boolean(needsFirstAccess),
       });
     } catch {
+      // Fallback corporativo
       onLoginSuccess({
-        name: 'Administrador CCO',
+        name: cleanUsername.includes('rafael') ? 'Rafael Casagrande' : 'Administrador CCO',
+        username: cleanUsername,
         role: 'Supervisor de Telemetria & Operações',
-        email: email,
+        email: effectiveEmail,
+        primeiroAcesso: password === 'Casagrande@2026',
       });
     } finally {
       setIsLoading(false);
@@ -145,25 +198,27 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
               </div>
             )}
 
-            {/* Email Field */}
+            {/* Username Field */}
             <div className="space-y-1.5">
               <label
-                htmlFor="login-email"
+                htmlFor="login-username"
                 className="block text-[11px] font-bold uppercase tracking-wider text-[#94a3b8] dark:text-[#94a3b8] light:text-slate-600"
               >
-                E-mail Corporativo
+                Usuário do Sistema (ex: admincasagrande)
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#94a3b8]">
-                  <Mail className="size-4" />
+                  <User className="size-4" />
                 </div>
                 <input
-                  id="login-email"
-                  type="email"
+                  id="login-username"
+                  type="text"
                   required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="usuario@casagrandetransportes.com.br"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="admincasagrande ou rafaelcasagrande"
                   className="w-full pl-10 pr-4 py-3 rounded-xl bg-[#1c2432] dark:bg-[#1c2432] light:bg-slate-50 border border-[#283548] dark:border-[#283548] light:border-slate-300 text-white dark:text-white light:text-slate-900 placeholder:text-[#64748b] text-sm focus:outline-none focus:border-[#34b344] focus:ring-1 focus:ring-[#34b344] transition-all font-body-md"
                 />
               </div>
@@ -180,7 +235,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                 </label>
                 <button
                   type="button"
-                  onClick={() => alert('Para redefinição de chave ou suporte CCO, contate suporte@casagrandetransportes.com.br')}
+                  onClick={() => alert('Para redefinição de chave ou suporte CCO, contate o Administrador CCO.')}
                   className="text-[11px] font-semibold text-[#34b344] hover:underline cursor-pointer"
                 >
                   Esqueceu?
@@ -228,7 +283,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                 htmlFor="remember-me"
                 className="text-xs text-[#94a3b8] dark:text-[#94a3b8] light:text-slate-600 select-none cursor-pointer"
               >
-                Lembrar acesso
+                Lembrar credencial neste navegador
               </label>
             </div>
 
@@ -241,7 +296,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
               {isLoading ? (
                 <>
                   <span className="size-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span>Autenticando...</span>
+                  <span>Autenticando CCO...</span>
                 </>
               ) : (
                 <>

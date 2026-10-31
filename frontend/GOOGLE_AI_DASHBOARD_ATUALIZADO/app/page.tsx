@@ -14,11 +14,13 @@ import DriverDetailModal from '@/components/DriverDetailModal';
 import RoadParamModal from '@/components/RoadParamModal';
 import NotificationsModal from '@/components/NotificationsModal';
 import UserProfileModal from '@/components/UserProfileModal';
-import LoginScreen from '@/components/screens/LoginScreen';
+import LoginScreen, { AuthenticatedUser } from '@/components/screens/LoginScreen';
+import FirstAccessPasswordModal from '@/components/FirstAccessPasswordModal';
+import TelemetryPreloader from '@/components/TelemetryPreloader';
 import UploadSpreadsheetModal from '@/components/UploadSpreadsheetModal';
+import { supabase } from '@/lib/supabaseClient';
 
 import {
-  INITIAL_INCIDENTS,
   INITIAL_ROAD_PARAMETERS,
   INITIAL_AUDIT_LOGS,
   Incident,
@@ -59,9 +61,17 @@ function createAuditLogEntry(action: string, operator = 'Operador CCO (admin)', 
 }
 
 export default function Home() {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true);
+  // Autenticação e Gestão de Sessão Corporativa
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [currentUser, setCurrentUser] = useState<AuthenticatedUser | null>(null);
+  const [isCheckingSession, setIsCheckingSession] = useState<boolean>(true);
+  const [isFirstAccessModalOpen, setIsFirstAccessModalOpen] = useState<boolean>(false);
+
+  // Pré-carregador telemétrico: previne exibição de métricas mock ou travamentos iniciais
+  const [isInitialLoading, setIsInitialLoading] = useState<boolean>(true);
+
   const [currentScreen, setCurrentScreen] = useState<ScreenId>('resumo-geral-e-horarios');
-  const [incidents, setIncidents] = useState<Incident[]>(INITIAL_INCIDENTS);
+  const [incidents, setIncidents] = useState<Incident[]>([]);
   const [roadParams, setRoadParams] = useState<RoadParameter[]>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -123,7 +133,72 @@ export default function Home() {
     });
   }, []);
 
-  // Carrega dados em tempo real do Supabase acionado pelo usuário
+  // 1. Verificação de Sessão Inicial (LocalStorage + Supabase Auth)
+  useEffect(() => {
+    let isCancelled = false;
+
+    const checkInitialSession = async () => {
+      try {
+        // Verificar sessão em cache local
+        if (typeof window !== 'undefined') {
+          const stored = localStorage.getItem('csg_session_user_v1');
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (parsed && parsed.username) {
+              if (!isCancelled) {
+                setCurrentUser(parsed);
+                setIsAuthenticated(true);
+                if (parsed.primeiroAcesso) {
+                  setIsFirstAccessModalOpen(true);
+                }
+              }
+            }
+          }
+        }
+
+        // Verificar sessão ativa no Supabase Auth
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user && !isCancelled) {
+          const email = session.user.email || '';
+          const uname = session.user.user_metadata?.username || email.split('@')[0] || 'admincasagrande';
+          const name = session.user.user_metadata?.nome || (uname.includes('rafael') ? 'Rafael Casagrande' : 'Administrador CCO');
+          const isDefault = session.user.user_metadata?.primeiro_acesso ?? false;
+
+          const userObj: AuthenticatedUser = {
+            id: session.user.id,
+            name,
+            username: uname,
+            email,
+            role: session.user.user_metadata?.role || 'admin',
+            primeiroAcesso: isDefault,
+          };
+
+          setCurrentUser(userObj);
+          setIsAuthenticated(true);
+          try {
+            localStorage.setItem('csg_session_user_v1', JSON.stringify(userObj));
+          } catch {}
+          if (isDefault) {
+            setIsFirstAccessModalOpen(true);
+          }
+        }
+      } catch (err) {
+        console.warn('Aviso: erro ao verificar sessão ativa:', err);
+      } finally {
+        if (!isCancelled) {
+          setIsCheckingSession(false);
+        }
+      }
+    };
+
+    checkInitialSession();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
+
+  // 2. Carrega dados em tempo real do Supabase
   const loadSupabaseData = useCallback(async (silent = false) => {
     if (!silent) setIsRefreshing(true);
     try {
@@ -162,10 +237,11 @@ export default function Home() {
       console.warn('Erro ao carregar dados do Supabase:', err);
     } finally {
       if (!silent) setIsRefreshing(false);
+      setIsInitialLoading(false);
     }
   }, [showToast]);
 
-  // Carga inicial assíncrona com cancelamento seguro sem disparar cascading renders
+  // Carga inicial assíncrona automática
   useEffect(() => {
     let isCancelled = false;
 
@@ -202,6 +278,10 @@ export default function Home() {
         }
       } catch (err) {
         console.warn('Erro ao carregar dados iniciais do Supabase:', err);
+      } finally {
+        if (!isCancelled) {
+          setIsInitialLoading(false);
+        }
       }
     })();
 
@@ -220,7 +300,7 @@ export default function Home() {
     return '26/09 a 25/10/2026';
   }, [stats?.periodo, incidents]);
 
-  // Collapsible Sidebar state (collapses to icon rail, expands on toggle/command)
+  // Collapsible Sidebar state
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
 
@@ -256,12 +336,12 @@ export default function Home() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isSidebarCollapsed]);
 
-  // URL hash navigation support
+  // URL hash navigation support: só navega nas telas se estiver autenticado
   useEffect(() => {
     const handleHash = () => {
       const hash = window.location.hash.replace('#', '');
       if (hash === 'login') {
-        setIsAuthenticated(false);
+        handleLogout();
         return;
       }
       if (
@@ -275,7 +355,6 @@ export default function Home() {
           'painel-admin-e-parametrizacoes',
         ].includes(hash)
       ) {
-        setIsAuthenticated(true);
         setCurrentScreen(hash as ScreenId);
       }
     };
@@ -286,18 +365,30 @@ export default function Home() {
   }, []);
 
   const handleSelectScreen = (screen: ScreenId) => {
-    setIsAuthenticated(true);
     setCurrentScreen(screen);
     window.location.hash = screen;
   };
 
-  const handleLoginSuccess = (user: { name: string; role: string; email: string }) => {
+  const handleLoginSuccess = (user: AuthenticatedUser) => {
+    setCurrentUser(user);
     setIsAuthenticated(true);
-    window.location.hash = currentScreen;
+    try {
+      localStorage.setItem('csg_session_user_v1', JSON.stringify(user));
+    } catch {}
+    if (user.primeiroAcesso) {
+      setIsFirstAccessModalOpen(true);
+    }
     showToast(`Autenticação autorizada! Bem-vindo(a), ${user.name}`);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch {}
+    try {
+      localStorage.removeItem('csg_session_user_v1');
+    } catch {}
+    setCurrentUser(null);
     setIsAuthenticated(false);
     window.location.hash = 'login';
     showToast('Sessão encerrada com sucesso no CCO.');
@@ -363,7 +454,17 @@ export default function Home() {
     showToast(`Parâmetros e regras propagados para os 35 veículos da frota!`);
   };
 
-  // If unauthenticated, render the dedicated responsive Login screen
+  // 1. Enquanto checa sessão inicial do navegador
+  if (isCheckingSession) {
+    return (
+      <TelemetryPreloader
+        statusText="Validando Sessão Operacional CCO..."
+        subText="Verificando credenciais e integridade com o Supabase"
+      />
+    );
+  }
+
+  // 2. Se não autenticado, renderiza obrigatoriamente a tela de login
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-[#090d14] dark:bg-[#090d14] light:bg-[#f1f5f9] text-[#f1f5f9] transition-colors duration-200">
@@ -375,13 +476,22 @@ export default function Home() {
             <span>{toastMessage}</span>
           </div>
         )}
-        <LoginScreen
-          onLoginSuccess={handleLoginSuccess}
-        />
+        <LoginScreen onLoginSuccess={handleLoginSuccess} />
       </div>
     );
   }
 
+  // 3. Se autenticado mas ainda carregando telemetria inicial, exibe o Preloader corporativo
+  if (isInitialLoading && incidents.length === 0) {
+    return (
+      <TelemetryPreloader
+        statusText="Sincronizando Telemetria da Frota CSG..."
+        subText="Consolidando 9.051 excessos de velocidade, apuração SESMT e conformidade dos 35 veículos"
+      />
+    );
+  }
+
+  // 4. Painel Operacional Carregado
   return (
     <div className="min-h-screen bg-[#0c1017] text-[#f1f5f9]">
       {/* Toast Notification */}
@@ -404,16 +514,17 @@ export default function Home() {
         onSelectScreen={handleSelectScreen}
         onOpenProfile={() => setIsProfileOpen(true)}
         onLogout={handleLogout}
+        user={currentUser}
         stats={stats}
       />
 
-      {/* Main Content Area - Responsive padding: 0 on mobile/tablet, 68px/272px on desktop */}
+      {/* Main Content Area */}
       <div
         className={`w-full transition-[padding-left] duration-240 ease-[cubic-bezier(0.23,1,0.32,1)] pl-0 ${
           isSidebarCollapsed ? 'lg:pl-[68px]' : 'lg:pl-[272px]'
         }`}
       >
-        {/* Fixed Top Header */}
+        {/* Fixed Top Header com métricas consistentes */}
         <TopHeader
           isSidebarCollapsed={isSidebarCollapsed}
           onToggleMobileMenu={() => setIsMobileDrawerOpen((prev) => !prev)}
@@ -431,7 +542,7 @@ export default function Home() {
                   periodo: stats.periodo || dynamicPeriodo,
                 }
               : {
-                  totalAlertas: incidents.length || 16068,
+                  totalAlertas: 16068,
                   totalVelocidade: 9051,
                   totalVeiculos: 35,
                   periodo: dynamicPeriodo,
@@ -461,9 +572,9 @@ export default function Home() {
 
           {currentScreen === 'premiacao-e-compliance' && (
             <ComplianceBonusScreen
-              incidents={incidents}
               onSelectDriver={(driver) => setSelectedDriver(driver)}
               drivers={driverScores}
+              incidents={incidents}
             />
           )}
 
@@ -489,7 +600,24 @@ export default function Home() {
         </main>
       </div>
 
-      {/* Modals */}
+      {/* Modals Corporativos */}
+      <FirstAccessPasswordModal
+        isOpen={isFirstAccessModalOpen}
+        user={currentUser}
+        onPasswordChanged={() => {
+          setIsFirstAccessModalOpen(false);
+          if (currentUser) {
+            const updated: AuthenticatedUser = { ...currentUser, primeiroAcesso: false };
+            setCurrentUser(updated);
+            try {
+              localStorage.setItem('csg_session_user_v1', JSON.stringify(updated));
+            } catch {}
+          }
+          showToast('Senha de acesso pessoal gravada com sucesso!');
+        }}
+        onLogout={handleLogout}
+      />
+
       <UploadSpreadsheetModal
         isOpen={isUploadModalOpen}
         onClose={() => setIsUploadModalOpen(false)}
@@ -497,7 +625,8 @@ export default function Home() {
           showToast(msg);
           if (details) {
             const uploadLog = createAuditLogEntry(
-              `Upload da planilha "${details.fileName}": ${details.inserted} novos eventos ingeridos, ${details.duplicates} duplicados ignorados`
+              `Upload da planilha "${details.fileName}": ${details.inserted} novos eventos ingeridos, ${details.duplicates} duplicados ignorados`,
+              currentUser?.name || 'Operador CCO'
             );
             appendAuditLog(uploadLog);
           }
@@ -537,8 +666,10 @@ export default function Home() {
 
       <UserProfileModal
         isOpen={isProfileOpen}
+        user={currentUser}
         onClose={() => setIsProfileOpen(false)}
         onLogout={handleLogout}
+        onChangePassword={() => setIsFirstAccessModalOpen(true)}
       />
     </div>
   );
