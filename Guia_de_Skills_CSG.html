@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Catálogo Completo de Skills - Dashboard Velocidades CSG</title>
+<style>
+  @page {
+    size: A4;
+    margin: 16mm 14mm 16mm 14mm;
+  }
+  @media print {
+    body {
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    .avoid-break {
+      break-inside: avoid !important;
+      page-break-inside: avoid !important;
+    }
+    .page-break {
+      page-break-before: always !important;
+    }
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    color: #1e293b;
+    background-color: #ffffff;
+    line-height: 1.45;
+    font-size: 11.5px;
+  }
+
+  .header-card {
+    background: linear-gradient(135deg, #090d16 0%, #1e293b 100%);
+    color: #ffffff;
+    padding: 22px 24px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    border: 1px solid #334155;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  }
+
+  .badge-banner {
+    display: inline-block;
+    padding: 3px 10px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    border-radius: 20px;
+    background-color: rgba(59, 130, 246, 0.25);
+    color: #93c5fd;
+    border: 1px solid rgba(59, 130, 246, 0.4);
+    margin-bottom: 8px;
+  }
+
+  h1 {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.4px;
+    color: #f8fafc;
+    margin-bottom: 4px;
+  }
+
+  .subtitle {
+    font-size: 12px;
+    color: #94a3b8;
+    margin-bottom: 14px;
+  }
+
+  .meta-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #334155;
+  }
+
+  .meta-item {
+    font-size: 10px;
+    color: #94a3b8;
+  }
+  .meta-item strong {
+    display: block;
+    font-size: 12px;
+    color: #f1f5f9;
+    margin-top: 1px;
+  }
+
+  .category-container {
+    margin-bottom: 18px;
+  }
+
+  .category-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #0f172a;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    padding-bottom: 5px;
+    border-bottom: 2px solid #e2e8f0;
+  }
+
+  .category-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    color: white;
+    font-size: 12px;
+    font-weight: bold;
+  }
+
+  .skills-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .skill-card {
+    background-color: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 7px;
+    padding: 10px 14px;
+    break-inside: avoid;
+    page-break-inside: avoid;
+    border-left: 4px solid #cbd5e1;
+  }
+
+  .skill-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 4px;
+  }
+
+  .skill-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1e3a8a;
+    font-family: 'Consolas', 'Menlo', 'Monaco', monospace;
+  }
+
+  .skill-tag {
+    font-size: 9.5px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 4px;
+    background: #e0f2fe;
+    color: #0369a1;
+    border: 1px solid #bae6fd;
+  }
+
+  .skill-desc {
+    color: #334155;
+    font-size: 11.5px;
+    line-height: 1.4;
+  }
+
+  .skill-when {
+    margin-top: 5px;
+    padding-top: 5px;
+    border-top: 1px dashed #cbd5e1;
+    font-size: 10.5px;
+    color: #64748b;
+  }
+  .skill-when strong {
+    color: #334155;
+  }
+
+  .footer-box {
+    margin-top: 20px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    background-color: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-left: 4px solid #3b82f6;
+    font-size: 11px;
+    color: #475569;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .footer-box h4 {
+    color: #0f172a;
+    font-size: 12px;
+    margin-bottom: 4px;
+  }
+</style>
+</head>
+<body>
+
+  <div class="header-card">
+    <div class="badge-banner">Referência Técnica Permanente</div>
+    <h1>Catálogo de Skills & Engenharia</h1>
+    <div class="subtitle">Dashboard Velocidades CSG &bull; Conjunto de Ferramentas, Agentes e Metodologias</div>
+    <div class="meta-grid">
+      <div class="meta-item">PROJETO<strong>Dashboard CSG</strong></div>
+      <div class="meta-item">SKILLS LOCAIS<strong>41 Especializadas</strong></div>
+      <div class="meta-item">DIRETÓRIO<strong>.agents/skills/</strong></div>
+      <div class="meta-item">DATA DE GERAÇÃO<strong>Outubro / 2026</strong></div>
+    </div>
+  </div>
+
+  <div class="category-container avoid-break">
+    <div class="category-title">
+      <span class="category-icon" style="background-color: #3b82f6;">🎨</span>
+      <span>1. Design & Desenvolvimento Frontend</span>
+    </div>
+    <div class="skills-grid">
+
+      <div class="skill-card" style="border-left-color: #3b82f6;">
+        <div class="skill-header">
+          <span class="skill-name">uiux-designer</span>
+          <span class="skill-tag">Design System & UI</span>
+        </div>
+        <div class="skill-desc">Guia e catálogo completo de UI/UX com mais de 50 estilos visuais, 97 paletas harmoniosas e 57 combinações tipográficas. Excelente para estruturar interfaces profissionais em React, Next.js, Dashboards e aplicações analíticas.</div>
+        <div class="skill-when"><strong>Quando usar:</strong> Ao criar ou reestilizar telas, escolher paletas de cores, definir fontes e garantir consistência visual no Dashboard.</div>
+      </div>
+
+      <div class="skill-card" style="border-left-color: #3b82f6;">
+        <div class="skill-header">
+          <span class="skill-name">design-taste-frontend</span>
+          <span class="skill-tag">Anti-Slop Art Direction</span>
+        </div>
+        <div class="skill-desc">Direção de arte premium (tasteskill v2) baseada no estudo de 247 sites premiados pelo Awwwards e One Page Love. Elimina o visual genérico e padronizado gerado por IAs, inspecionando a página em navegador real e refinando a estética iterativamente.</div>
+        <div class="skill-when"><strong>Quando usar:</strong> Quando um layout parecer genérico, amador ou com 'cara de template de IA', ou ao desenhar landing pages e telas de alto impacto.</div>
+      </div>
+
+      <div class="skill-card" style="border-left-color: #3b82f6;">
+        <div class="skill-header">
+          <span class="skill-name">frontend-expert</span>
+          <span class="skill-tag">React / TypeScript</span>
+        </div>
+        <div class="skill-desc">Especialista em React e TypeScript moderno. Implementa padrões de alta performance como React Suspense, useSuspenseQuery, lazy loading, TanStack Router, estilização com MUI v7 e otimização de renderização.</div>
+        <div class="skill-when"><strong>Quando usar:</strong> Ao programar componentes complexos, gerenciar dados assíncronos ou resolver gargalos de performance no frontend.</div>
+      </div>
+
+      <div class="skill-card" style="border-left-color: #3b82f6;">
+        <div class="skill-header">
+          <span class="skill-name">prototype</span>
+          <span class="skill-tag">Prototipagem Rápida</span>
+        </div>
+        <div class="skill-desc">Constrói protótipos descartáveis e funcionais em poucos minutos para responder perguntas de arquitetura, fluxo de usuário ou viabilidade de interface sem comprometer a base de código principal.</div>
+        <div class="skill-when"><strong>Quando usar:</strong> Para testar rapidamente uma ideia de tela, validar um modelo de estado ou experimentar uma nova biblioteca.</div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="category-container avoid-break">
+    <div class="category-title">
+      <span class="category-icon" style="background-color: #8b5cf6;">📋</span>
+      <span>2. Planejamento, Entrevistas & Especificação</span>
+    </div>
+    <div class="skills-grid">
+
+      <div class="skill-card" style="border-left-color: #8b5cf6;">
+        <div class="skill-header">
+          <span class="skill-name">grill-me</span>
+          <span class="skill-tag">Validação de Plano</span>
+        </div>
+        <div class="skill-desc">Entrevista incisiva e sem rodeios para estressar e amadurecer um plano, design técnico ou ideia antes de qualquer linha de código ser escrita. Identifica furos conceituais e cenários de borda.</div>
+        <div class="skill-when"><strong>Quando usar:</strong> Antes de iniciar uma grande refatoração ou funcionalidade, para garantir que todas as premissas estão corretas.</div>
+      </div>
+
+      <div class="skill-card" style="border-left-color: #8b5cf6;">
+        <div class="skill-header">
+          <span class="skill-name">grill-with-docs</span>
+          <span class="skill-tag">Planejamento com ADRs</span>
+        </div>
+        <div class="skill-desc">Conduz o interrogatório desafiador do grill-me enquanto documenta simultaneamente as decisões tomadas em registros de decisão de arquitetura (ADRs) e no glossário de termos.</div>
+        <div class="skill-when"><strong>Quando usar:</strong> Para planejar sistemas críticos onde o registro formal das decisões arquiteturais e do domínio precisa ficar documentado.</div>
+      </div>
+
+      <div class="skill-card" style="border-left-color: #8b5cf6;">
+        <div class="skill-header">
+          <span class="skill-name">grilling</span>
+          <span class="skill-tag">Teste de Estresse</span>
+        </div>
+        <div class="skill-desc">Desafia agressivamente o usuário ou plano proposto contra premissas falhas, trade-offs não avaliados e complexidade acidental.</div>
+        <div class="skill-when"><strong>Quando usar:</strong> Sempre que você quiser que suas ideias sejam colocadas à prova sob a ótica mais crítica possível.</div>
+      </div>
+
+      <div class="skill-card" style="border-left-color: #8b5cf6;">
+        <div class="skill-header">
+          <span class="skill-name">loop-me</span>
+          <span class="skill-tag">Design de Workflows</span>
+        </div>
+        <div class="skill-desc">Processo de entrevista voltado para mapear detalhadamente os fluxos de trabalho (workflows) e interações que precisam ser construídos no repositório.</div>
+        <div class="skill-when"><strong>Quando usar:</strong> Para desenhar processos de ponta a ponta e garantir clareza nas etapas operacionais antes da codificação.</div>
+      </div>
+
+      <div class="skill-card" style="border-left-color: #8b5cf6;">
+        <div class="skill-header">
+          <span class="skill-name">to-spec</span>
+          <span class="skill-tag">Geração de Spec</span>
+        </div>
+        <div class="skill-desc">Transforma o conteúdo de uma sessão ou conversa em uma especificação técnica formal completa, pronta para publicação no gerenciador de tarefas do projeto.</div>
+        <div class="skill-when"><strong>Quando usar:</strong> Após discutir uma funcionalidade e precisar convertê-la em uma especificação detalhada de produto/engenharia.</div>
+      </div>
+
+      <div class="skill-card" style="border-left-color: #8b5cf6;">
+        <div class="skill-header">
+          <span class="skill-name">to-tickets</span>
+          <span class="skill-tag">Decomposição em Tarefas</span>
+        </div>
+        <div class="skill-desc">Quebra uma especificação ou plano complexo em pequenos tickets operacionais (*tracer bullets*), explicitando dependências bloqueantes entre cada um.</div>
+        <div class="skill-when"><strong>Quando usar:</strong> Para transformar uma especificação técnica em um backlog acionável e ordenado para implementação.</div>
+      </div>
+
+      <div class="skill-card" style="border-left-color: #8b5cf6;">
+        <div class="skill-header">
+          <span class="skill-name">to-questionnaire</span>
+          <span class="skill-tag">Resolução de Incertezas</span>
+        </div>
+        <div class="skill-desc">Converte decisões pendentes ou perguntas em aberto que você não consegue responder no momento em um questionário estruturado para outros participantes da equipe.</div>
+        <div class="skill-when"><strong>Quando usar:</strong> Ao encontrar bloqueios de negócio ou decisões que dependem de outros desenvolvedores ou gestores.</div>
+      </div>
+
+      <div class="skill-card" style="border-left-color: #8b5cf6;">
+        <div class="skill-header">
+          <span class="skill-name">wayfinder</span>
+          <span class="skill-tag">Mapeamento de Épicos</span>
+        </div>
+        <div class="skill-desc">Mapeia projetos gigantescos que excedem uma única sessão de agente em um grafo de decisões e tickets rastreáveis, destravando um por um até o destino final.</div>
+        <div class="skill-when"><strong>Quando usar:</strong> Para grandes empreitadas de engenharia, migrações completas ou módulos inteiros.</div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="category-container avoid-break">
+    <div class="category-title">
+      <span class="category-icon" style="background-color: #0ea5e9;">🏛️</span>
+      <span>3. Arquitetura & Modelagem de Domínio</span>
+    </div>
+    <div class="skills-grid">
+
+      <div class="skill-card" style="border-left-color: #0ea5e9;">
+        <div class="skill-header">
+          <span class="skill-name">codebase-design</span>
+          <span class="skill-tag">Deep Modules</span>
+        </div>
+        <div class="skill-desc">Princípios e vocabulário formal de design de software para criar 'módulos profundos' (*deep modules*): interfaces públicas enxutas com implementações robustas e bem encapsuladas.</div>
+        <div class="skill-when"><strong>Quando usar:</strong> Ao desenhar interfaces públicas de módulos, definir fronteiras de pacotes e tornar o código altamente testável.</div>
+      </div>
+
+      <div class="skill-card" style="border-left-color: #0ea5e9;">
+        <div class="skill-header">
+          <span class="skill-name">domain-modeling</span>
+          <span class="skill-tag">Linguagem Ubíqua</span>
+        </div>
+        <div class="skill-desc">Constrói e preserva a precisão do modelo de domínio no projeto, mantendo os arquivos GLOSSARY.md e ADRs perfeitamente alinhados à terminologia do negócio.</div>
+        <div class="skill-when"><strong>Quando usar:</strong> Ao introduzir novos conceitos de domínio ou evitar discrepâncias de nomenclatura entre o código e as regras de negócio.</div>
+      </div>
+
+      <div class="skill-card" style="border-left-color: #0ea5e9;">
+        <div class="skill-header">
+          <span class="skill-name">improve-codebase-architecture</span>
+          <span class="skill-tag">Auditoria de Arquitetura</span>
+        </div>
+        <div class="skill-desc">Analisa minuciosamente a base de código em busca de oportunidades de encapsulamento, exibe um relatório visual interativo em HTML e permite aprofundar nas prioridades escolhidas.</div>
+        <div class="skill-when"><strong>Quando usar:</strong> Para fazer um raio-x arquitetural da aplicação e planejar melhorias estruturais de médio prazo.</div>
+      </div>
+
+      <div class="skill-card" style="border-left-color: #0ea5e9;">
+        <div class="skill-header">
+          <span class="skill-name">setup-ts-deep-modules</span>
+          <span class="skill-tag">Governança de Imports</span>
+        </div>
+        <div class="skill-desc">Configura o dependency-cruiser no repositório TypeScript para assegurar que cada módulo oculte seus detalhes internos e seja acessado exclusivamente por seus arquivos de entrada (index).</div>
+        <div class="skill-when"><strong>Quando usar:</strong> Para impedir acoplamentos indevidos e importações circulares em projetos TypeScript.</div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="category-container avoid-break">
+    <div class="category-title">
+      <span class="category-icon" style="background-color: #10b981;">⚡</span>
+      <span>4. Implementação, Testes & Depuração</span>
+    </div>
+    <div class="skills-grid">
+
+      <div class="skill-card" style="border-left-color: #10b981;">
+        <div class="skill-header">
+          <span class="skill-name">implement</span>
+          <span class="skill-tag">Execução de Tarefas</span>
+        </div>
+        <div class="skill-desc">Executa a codificação passo a passo baseando-se em uma especificação aprovada ou em um conjunto de tickets, garantindo aderência rigorosa ao escopo delimitado.</div>
+        <div class="skill-when"><strong>Quando usar:</strong> Para codificar funcionalidades definidas com precisão e sem inventar escopo adicional.</div>
+      </div>
+
+      <div class="skill-card" style="border-left-color: #10b981;">
+        <div class="skill-header">
+          <span class="skill-name">implement-spec</span>
+          <span class="skill-tag">Execução de Spec</span>
+        </div>
+        <div class="skill-desc">Implementação automática e estruturada dos artefatos gerados especificamente pelas skills /to-spec e /to-tickets.</div>
+        <div class="skill-when"><strong>Quando usar:</strong> Imediatamente após rodar a geração de specs e tickets para iniciar a entrega de código.</div>
+      </div>
+
+      <div class="skill-card" style="border-left-color: #10b981;">
+        <div class="skill-header">
+          <span class="skill-name">tdd</span>
+          <span class="skill-tag">Test-Driven Development</span>
+        </div>
+        <div class="skill-desc">Desenvolvimento guiado por testes seguindo com rigor a disciplina Red-Green-Refactor. Garante testes unitários e de integração confiáveis desde o primeiro minuto.</div>
+        <div class="skill-when"><strong>Quando usar:</strong> Ao criar lógicas de cálculo, transformações de dados ou algoritmos onde a corretude é primordial.</div>
+      </div>
+
+      <div class="skill-card" style="border-left-color: #10b981;">
+        <div class="skill-header">
+          <span class="skill-name">diagnosing-bugs</span>
+          <span class="skill-tag">Depuração Sistemática</span>
+        </div>
+        <div class="skill-desc">Metodologia estruturada para isolamento de defeitos difíceis, reprodução mínima, análise de hipóteses e eliminação definitiva de regressões e falhas de runtime.</div>
+        <div class="skill-when"><strong>Quando usar:</strong> Sempre que um erro inesperado, exceção silenciosa ou gargalo de lentidão for identificado.</div>
+      </div>
+
+      <div class="skill-card" style="border-left-color: #10b981;">
+        <div class="skill-header">
+          <span class="skill-name">migrate-to-shoehorn</span>
+          <span class="skill-tag">Segurança de Tipos em Testes</span>
+        </div>
+        <div class="skill-desc">Migra asserções de tipo inseguras ('as Type') em arquivos de teste para a biblioteca utilitária @total-typescript/shoehorn, mantendo os dados parciais com checagem segura do TypeScript.</div>
+        <div class="skill-when"><strong>Quando usar:</strong> Para limpar mocks frágeis em testes e elevar a confiabilidade da suíte de testes TypeScript.</div>
+      </div>
+
+      <div class="skill-card" style="border-left-color: #10b981;">
+        <div class="skill-header">
+          <span class="skill-name">scaffold-exercises</span>
+          <span class="skill-tag">Criação de Exercícios</span>
+        </div>
+        <div class="skill-desc">Gera estruturas completas para exercícios práticos com seções, problemas, soluções automatizadas e notas explicativas com conformidade de lint.</div>
+        <div class="skill-when"><strong>Quando usar:</strong> Para criar material de treino, tutoriais internos ou desafios técnicos no projeto.</div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="category-container avoid-break">
+    <div class="category-title">
+      <span class="category-icon" style="background-color: #f59e0b;">🔍</span>
+      <span>5. Revisão de Código, Git & Workflows de Equipe</span>
+    </div>
+    <div class="skills-grid">
+
+      <div class="skill-card" style="border-left-color: #f59e0b;">
+        <div class="skill-header">
+          <span class="skill-name">code-review</span>
+          <span class="skill-tag">Revisão Dual</span>
+        </div>
+        <div class="skill-desc">Revisa as alterações de uma branch ou commit disparando duas análises especializadas em paralelo: 'Standards' (padrões de engenharia e estilo do repo) e 'Spec' (fidelidade aos requisitos solicitados).</div>
+        <div class="skill-when"><strong>Quando usar:</strong> Antes de abrir um PR ou antes de mesclar alterações críticas para garantir alta qualidade.</div>
+      </div>
+
+      <div class="skill-card" style="border-left-color: #f59e0b;">
+        <div class="skill-header">
+          <span class="skill-name">pr</span>
+          <span class="skill-tag">Documentação de PR</span>
+        </div>
+        <div class="skill-desc">Gera corpos de Pull Requests profissionais, com sumário executivo das mudanças, motivações, checklist de validação e impactos.</div>
+        <div class="skill-when"><strong>Quando usar:</strong> Ao finalizar uma funcionalidade e preparar o Pull Request para submissão no GitHub/GitLab.</div>
+      </div>
+
+      <div class="skill-card" style="border-left-color: #f59e0b;">
+        <div class="skill-header">
+          <span class="skill-name">git-guardrails-claude-code</span>
+          <span class="skill-tag">Segurança no Git</span>
+        </div>
+        <div class="skill-desc">Configura proteções e hooks para barrar comandos destrutivos no Git (como push forçado, git reset --hard ou deleção acidental de branches).</div>
+        <div class="skill-when"><strong>Quando usar:</strong> Para proteger repositórios importantes contra comandos destrutivos executados por agentes autônomos ou acidentalmente.</div>
+      </div>
+
+      <div class="skill-card" style="border-left-color: #f59e0b;">
+        <div class="skill-header">
+          <span class="skill-name">setup-pre-commit</span>
+          <span class="skill-tag">Automação Pré-Commit</span>
+        </div>
+        <div class="skill-desc">Configura e padroniza hooks com Husky e lint-staged (Prettier, ESLint, checagem de tipos tsc e execução dos testes pertinentes aos arquivos alterados).</div>
+        <div class="skill-when"><strong>Quando usar:</strong> Para garantir que nenhum commit quebre o build ou fuja das regras de formatação do time.</div>
+      </div>
+
+      <div class="skill-card" style="border-left-color: #f59e0b;">
+        <div class="skill-header">
+          <span class="skill-name">triage</span>
+          <span class="skill-tag">Triagem de Demandas</span>
+        </div>
+        <div class="skill-desc">Conduz issues e PRs externos através de uma máquina de estados: categorização, verificação técnica, validação de bugs e elaboração de briefs prontos para execução por agentes.</div>
+        <div class="skill-when"><strong>Quando usar:</strong> Para organizar filas de issues, chamados de usuários ou contribuições externas de forma padronizada.</div>
+      </div>
+
+      <div class="skill-card" style="border-left-color: #f59e0b;">
+        <div class="skill-header">
+          <span class="skill-name">retro</span>
+          <span class="skill-tag">Retrospectiva de Sessão</span>
+        </div>
+        <div class="skill-desc">Facilita uma retrospectiva técnica e operacional ao final de uma sessão de programação, avaliando o que funcionou, lições aprendidas e próximos passos.</div>
+        <div class="skill-when"><strong>Quando usar:</strong> Ao concluir marcos relevantes ou após sessões intensas de pareamento.</div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="category-container avoid-break">
+    <div class="category-title">
+      <span class="category-icon" style="background-color: #ec4899;">🤖</span>
+      <span>6. Orquestração, Handoff & Navegação de Agentes</span>
+    </div>
+    <div class="skills-grid">
+
+      <div class="skill-card" style="border-left-color: #ec4899;">
+        <div class="skill-header">
+          <span class="skill-name">ask-matt</span>
+          <span class="skill-tag">Roteador de Skills</span>
+        </div>
+        <div class="skill-desc">Funciona como um guia inteligente sobre o repositório, indicando exatamente qual skill ou fluxo de trabalho é mais adequado para o desafio que você tem em mãos.</div>
+        <div class="skill-when"><strong>Quando usar:</strong> Quando estiver em dúvida sobre qual comando, skill ou abordagem adotar a seguir.</div>
+      </div>
+
+      <div class="skill-card" style="border-left-color: #ec4899;">
+        <div class="skill-header">
+          <span class="skill-name">chief-of-staff</span>
+          <span class="skill-tag">Coordenação de Subagentes</span>
+        </div>
+        <div class="skill-desc">Atua como coordenador de longo prazo para metas complexas em uma única sessão, orquestrando subagentes especialistas e garantindo alinhamento de escopo.</div>
+        <div class="skill-when"><strong>Quando usar:</strong> Para tarefas multidisciplinares de longa duração que exigem múltiplos papéis.</div>
+      </div>
+
+      <div class="skill-card" style="border-left-color: #ec4899;">
+        <div class="skill-header">
+          <span class="skill-name">claude-handoff</span>
+          <span class="skill-tag">Transição em Background</span>
+        </div>
+        <div class="skill-desc">Passa o trabalho e contexto da conversa atual para um novo agente em segundo plano, que assume a continuidade imediatamente sem perda de foco.</div>
+        <div class="skill-when"><strong>Quando usar:</strong> Para delegar execuções assíncronas longas ou passar o bastão para outra instância de agente.</div>
+      </div>
+
+      <div class="skill-card" style="border-left-color: #ec4899;">
+        <div class="skill-header">
+          <span class="skill-name">handoff</span>
+          <span class="skill-tag">Resumo de Transição</span>
+        </div>
+        <div class="skill-desc">Sintetiza e compacta o estado da conversa e do código em um documento conciso de transição, pronto para ser lido e continuado por qualquer outro agente posteriormente.</div>
+        <div class="skill-when"><strong>Quando usar:</strong> Ao terminar seu turno de trabalho ou antes de reiniciar o contexto da IA.</div>
+      </div>
+
+      <div class="skill-card" style="border-left-color: #ec4899;">
+        <div class="skill-header">
+          <span class="skill-name">wait-what</span>
+          <span class="skill-tag">Recalibragem de Resposta</span>
+        </div>
+        <div class="skill-desc">Interrompe a linha atual quando uma explicação ou proposta do agente não fez sentido, instruindo-o a repensar a abordagem e reexplicar sob outro ângulo.</div>
+        <div class="skill-when"><strong>Quando usar:</strong> Quando o assistente fornecer uma resposta confusa, prolixa ou desalinhada com a realidade do projeto.</div>
+      </div>
+
+      <div class="skill-card" style="border-left-color: #ec4899;">
+        <div class="skill-header">
+          <span class="skill-name">wizard</span>
+          <span class="skill-tag">Assistente Interativo</span>
+        </div>
+        <div class="skill-desc">Gera scripts interativos de terminal em bash para guiar o desenvolvedor passo a passo em tarefas manuais sensíveis que apenas humanos podem fazer (configurar chaves secretas, infra, etc.).</div>
+        <div class="skill-when"><strong>Quando usar:</strong> Para provisionar serviços na nuvem, lidar com autenticações manuais ou migrações delicadas de banco.</div>
+      </div>
+
+      <div class="skill-card" style="border-left-color: #ec4899;">
+        <div class="skill-header">
+          <span class="skill-name">research</span>
+          <span class="skill-tag">Pesquisa Aprofundada</span>
+        </div>
+        <div class="skill-desc">Investiga perguntas técnicas contra fontes primárias de alta confiabilidade (documentações oficiais, especificações) e registra os achados em Markdown no repositório.</div>
+        <div class="skill-when"><strong>Quando usar:</strong> Para pesquisar APIs desconhecidas, comparar soluções técnicas ou embasar decisões de design.</div>
+      </div>
+
+      <div class="skill-card" style="border-left-color: #ec4899;">
+        <div class="skill-header">
+          <span class="skill-name">teach</span>
+          <span class="skill-tag">Ensino Contextualizado</span>
+        </div>
+        <div class="skill-desc">Ensina novas técnicas, conceitos de engenharia ou detalhes de bibliotecas de forma pedagógica e adaptada ao código específico do seu projeto.</div>
+        <div class="skill-when"><strong>Quando usar:</strong> Quando quiser entender a fundo um padrão arquitetural, biblioteca ou conceito moderno de programação.</div>
+      </div>
+
+      <div class="skill-card" style="border-left-color: #ec4899;">
+        <div class="skill-header">
+          <span class="skill-name">setup-matt-pocock-skills</span>
+          <span class="skill-tag">Setup de Ecossistema</span>
+        </div>
+        <div class="skill-desc">Prepara a infraestrutura básica do repositório para o ecossistema de engenharia: configura diretórios de documentação, templates e convenções de labels.</div>
+        <div class="skill-when"><strong>Quando usar:</strong> Executado na inicialização do repositório para habilitar todas as demais skills de engenharia.</div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="category-container avoid-break">
+    <div class="category-title">
+      <span class="category-icon" style="background-color: #14b8a6;">✍️</span>
+      <span>7. Escrita & Documentação Técnica</span>
+    </div>
+    <div class="skills-grid">
+
+      <div class="skill-card" style="border-left-color: #14b8a6;">
+        <div class="skill-header">
+          <span class="skill-name">writing-for-agents</span>
+          <span class="skill-tag">Instruções para IAs</span>
+        </div>
+        <div class="skill-desc">Diretrizes especializadas para redigir ou aprimorar arquivos de instruções consumidos por agentes de inteligência artificial (como AGENTS.md, CLAUDE.md ou novas skills).</div>
+        <div class="skill-when"><strong>Quando usar:</strong> Ao criar ou customizar novas skills ou regras comportamentais para o assistente.</div>
+      </div>
+
+      <div class="skill-card" style="border-left-color: #14b8a6;">
+        <div class="skill-header">
+          <span class="skill-name">writing-fragments</span>
+          <span class="skill-tag">Fase Exploratória</span>
+        </div>
+        <div class="skill-desc">Fase 1 do fluxo de redação: extrai e agrupa fragmentos brutos, insights dispersos e notas sem preocupação imediata com formatação ou ordem final.</div>
+        <div class="skill-when"><strong>Quando usar:</strong> No início do processo de escrita técnica, reunindo ideias e referências soltas.</div>
+      </div>
+
+      <div class="skill-card" style="border-left-color: #14b8a6;">
+        <div class="skill-header">
+          <span class="skill-name">writing-beats</span>
+          <span class="skill-tag">Fase de Estruturação</span>
+        </div>
+        <div class="skill-desc">Fase 2 do fluxo de redação: organiza os fragmentos em uma sequência lógica de 'batidas narrativas' (beats), assegurando que cada conceito seja definido antes de ser utilizado.</div>
+        <div class="skill-when"><strong>Quando usar:</strong> Para estruturar artigos, documentações de produtos ou tutoriais técnicos com progressão lógica impecável.</div>
+      </div>
+
+      <div class="skill-card" style="border-left-color: #14b8a6;">
+        <div class="skill-header">
+          <span class="skill-name">writing-shape</span>
+          <span class="skill-tag">Fase de Redação Final</span>
+        </div>
+        <div class="skill-desc">Fase 3 do fluxo de redação: transforma a estrutura de batidas no artigo final completo, escrevendo parágrafo por parágrafo com coesão e clareza.</div>
+        <div class="skill-when"><strong>Quando usar:</strong> Para polir e finalizar artigos, manuais e guias oficiais para publicação.</div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="category-container avoid-break">
+    <div class="category-title">
+      <span class="category-icon" style="background-color: #6366f1;">🌐</span>
+      <span>8. Skills de Plataforma & Ferramentas Globais</span>
+    </div>
+    <div class="skills-grid">
+
+      <div class="skill-card" style="border-left-color: #6366f1;">
+        <div class="skill-header">
+          <span class="skill-name">chrome-devtools & a11y-debugging</span>
+          <span class="skill-tag">DevTools & Acessibilidade</span>
+        </div>
+        <div class="skill-desc">Conexão direta com o navegador via MCP: inspeção de DOM, análise de rede, depuração de erros em tempo real e auditoria de acessibilidade (WCAG, contrastes e ARIA).</div>
+        <div class="skill-when"><strong>Quando usar:</strong> Para depurar visualmente a aplicação e validar acessibilidade em testes com o navegador real.</div>
+      </div>
+
+      <div class="skill-card" style="border-left-color: #6366f1;">
+        <div class="skill-header">
+          <span class="skill-name">modern-web-guidance</span>
+          <span class="skill-tag">Web Standards</span>
+        </div>
+        <div class="skill-desc">Repositório de melhores práticas modernas para HTML, CSS e JavaScript: View Transitions, Container Queries, seletores :has, otimização de renderização e APIs Web recentes.</div>
+        <div class="skill-when"><strong>Quando usar:</strong> Sempre que estiver construindo componentes de frontend para evitar práticas legadas ou obsoletas.</div>
+      </div>
+
+      <div class="skill-card" style="border-left-color: #6366f1;">
+        <div class="skill-header">
+          <span class="skill-name">debug-optimize-lcp & memory-leak</span>
+          <span class="skill-tag">Performance & Core Web Vitals</span>
+        </div>
+        <div class="skill-desc">Diagnóstico de Core Web Vitals (Largest Contentful Paint) e detecção de vazamentos de memória (heap snapshots) em aplicações JavaScript.</div>
+        <div class="skill-when"><strong>Quando usar:</strong> Para resolver páginas lentas, melhorar métricas de carregamento ou investigar travamentos de memória.</div>
+      </div>
+
+      <div class="skill-card" style="border-left-color: #6366f1;">
+        <div class="skill-header">
+          <span class="skill-name">firebase-* (Firestore, Rules, Hosting)</span>
+          <span class="skill-tag">Serviços de Nuvem</span>
+        </div>
+        <div class="skill-desc">Conjunto de automações para ecossistema Firebase: modelagem de coleções Firestore, autoria de regras de segurança rigorosas (firestore.rules) e deploy em Hosting.</div>
+        <div class="skill-when"><strong>Quando usar:</strong> Ao integrar ou manter bancos de dados em nuvem, regras de segurança e deploys estáticos.</div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="footer-box avoid-break">
+    <h4>💡 Dica de Uso com seu Assistente</h4>
+    <p>Para ativar qualquer uma das habilidades acima durante a conversa, basta mencioná-la nominalmente (por exemplo: <em>"use a skill design-taste-frontend para melhorar esta página"</em> ou <em>"execute o code-review na minha branch"</em>). O assistente lerá as regras especializadas correspondentes e seguirá o fluxo rigorosamente.</p>
+  </div>
+
+</body>
+</html>

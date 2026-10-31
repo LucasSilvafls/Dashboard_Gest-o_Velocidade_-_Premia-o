@@ -1,0 +1,320 @@
+<!-- ========================================== -->
+<!-- TAB 5: PREMIAÇÃO MOTORISTA X CAMINHÃO      -->
+<!-- ========================================== -->
+<div id="view-premiacao" class="tab-content hidden space-y-5">
+    <!-- Executive Directive & Filter Toolbar -->
+    <div class="telemetry-panel p-5 space-y-4">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-hairline">
+            <div class="flex items-start sm:items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-csg-500/10 border border-csg-500/30 flex items-center justify-center shrink-0">
+                    <i data-lucide="award" class="w-5 h-5 metric-brand"></i>
+                </div>
+                <div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <h3 class="text-sm font-bold text-main uppercase tracking-wider">
+                            Programa de Premiação: Motorista x Caminhão
+                        </h3>
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-csg-500/20 text-csg-400 border border-csg-500/40">
+                            Teto Regulamentar: 80 km/h
+                        </span>
+                    </div>
+                    <p class="text-xs text-tech-muted mt-0.5">
+                        Apuração de conformidade de velocidade para bonificação de direção segura. O condutor está <strong>apto</strong> quando não ultrapassa <strong>80 km/h</strong> em nenhuma viagem com os caminhões.
+                    </p>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2.5 shrink-0">
+                <button type="button" onclick="exportPremiacaoCSV()" class="btn-primary-green px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5 shadow-sm cursor-pointer">
+                    <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i>
+                    <span>Exportar Relatório Premiação (CSV)</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Sub-filters & Simulation Control -->
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-3.5 items-center pt-1">
+            <!-- Scope Selection (5 cols) -->
+            <div class="md:col-span-5 flex flex-col gap-1.5">
+                <span class="text-[10px] uppercase font-bold text-tech-muted tracking-wider">Escopo de Veículos Avaliados:</span>
+                <div class="inline-flex rounded p-0.5 panel-subsurface border border-hairline text-xs font-semibold">
+                    <button type="button" onclick="setPremiacaoScope('TRUCKS')" data-scope="TRUCKS" class="premiacao-scope-btn flex-1 py-1.5 px-3 rounded text-center transition-all bg-emerald-600 text-white border-emerald-600 cursor-pointer">
+                        Apenas Caminhões / Pesados
+                    </button>
+                    <button type="button" onclick="setPremiacaoScope('ALL')" data-scope="ALL" class="premiacao-scope-btn flex-1 py-1.5 px-3 rounded text-center transition-all panel-subsurface text-tech-muted cursor-pointer">
+                        Toda a Frota (Todos)
+                    </button>
+                </div>
+            </div>
+
+            <!-- Status Filter (4 cols) -->
+            <div class="md:col-span-4 flex flex-col gap-1.5">
+                <span class="text-[10px] uppercase font-bold text-tech-muted tracking-wider">Filtrar por Status:</span>
+                <div class="inline-flex rounded p-0.5 panel-subsurface border border-hairline text-xs font-semibold">
+                    <button type="button" onclick="setPremiacaoStatusFilter('ALL')" data-status="ALL" class="premiacao-status-btn flex-1 py-1.5 px-2 text-center transition-all bg-emerald-600 text-white border-emerald-600 cursor-pointer">
+                        Todos
+                    </button>
+                    <button type="button" onclick="setPremiacaoStatusFilter('APTO')" data-status="APTO" class="premiacao-status-btn flex-1 py-1.5 px-2 text-center transition-all panel-subsurface text-tech-muted cursor-pointer">
+                        🏆 Aptos (≤ 80)
+                    </button>
+                    <button type="button" onclick="setPremiacaoStatusFilter('INAPTO')" data-status="INAPTO" class="premiacao-status-btn flex-1 py-1.5 px-2 text-center transition-all panel-subsurface text-tech-muted cursor-pointer">
+                        ❌ Inaptos (&gt; 80)
+                    </button>
+                </div>
+            </div>
+
+            <!-- Custom Threshold Simulator (3 cols) -->
+            <div class="md:col-span-3 flex flex-col gap-1.5">
+                <div class="flex items-center justify-between">
+                    <span class="text-[10px] uppercase font-bold text-tech-muted tracking-wider">Teto Avaliado:</span>
+                    <span class="text-[10px] font-mono text-csg-400 font-bold">Oficial: 80 km/h</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <input type="number" id="premiacao-threshold-input" min="50" max="120" step="5" value="80" onchange="setPremiacaoThreshold(this.value)" class="theme-input px-2.5 py-1 text-xs font-mono font-bold w-20 text-center">
+                    <span class="text-xs text-tech-muted font-mono font-semibold">km/h</span>
+                    <div class="flex items-center gap-1 ml-auto">
+                        <button type="button" onclick="setPremiacaoThreshold(80)" data-thresh="80" class="premiacao-thresh-btn px-2 py-1 rounded text-[10px] font-mono font-bold bg-emerald-600 text-white transition-all cursor-pointer" title="Regra Oficial: 80 km/h">80</button>
+                        <button type="button" onclick="setPremiacaoThreshold(85)" data-thresh="85" class="premiacao-thresh-btn px-2 py-1 rounded text-[10px] font-mono font-bold panel-subsurface text-tech-muted transition-all cursor-pointer" title="Simular 85 km/h">85</button>
+                        <button type="button" onclick="setPremiacaoThreshold(90)" data-thresh="90" class="premiacao-thresh-btn px-2 py-1 rounded text-[10px] font-mono font-bold panel-subsurface text-tech-muted transition-all cursor-pointer" title="Simular 90 km/h">90</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- KPI Cards Row -->
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5">
+        <!-- KPI 1: Total Condutores -->
+        <div class="telemetry-panel p-4 flex flex-col justify-between">
+            <div class="flex items-center justify-between pb-1">
+                <span class="text-[10px] uppercase font-bold text-tech-muted tracking-wider">Condutores Avaliados</span>
+                <i data-lucide="users" class="w-3.5 h-3.5 metric-brand"></i>
+            </div>
+            <div class="mt-2">
+                <span class="text-2xl font-bold font-mono text-main tracking-tight" id="prem-kpi-total">0</span>
+            </div>
+            <span class="text-[11px] text-tech-muted mt-1 block">Condutores identificados</span>
+        </div>
+
+        <!-- KPI 2: Aptos -->
+        <div class="telemetry-panel p-4 flex flex-col justify-between border-l-2 border-emerald-500">
+            <div class="flex items-center justify-between pb-1">
+                <span class="text-[10px] uppercase font-bold text-csg-400 tracking-wider">Aptos à Premiação</span>
+                <i data-lucide="check-circle" class="w-3.5 h-3.5 metric-brand"></i>
+            </div>
+            <div class="mt-2 flex items-baseline gap-2">
+                <span class="text-2xl font-bold font-mono metric-brand tracking-tight" id="prem-kpi-aptos">0</span>
+                <span class="text-[11px] font-mono text-csg-400 font-bold" id="prem-kpi-aptos-pct">0%</span>
+            </div>
+            <span class="text-[11px] text-csg-300 font-semibold mt-1 block">[OK] Vel. Máx ≤ 80 km/h</span>
+        </div>
+
+        <!-- KPI 3: Inaptos -->
+        <div class="telemetry-panel p-4 flex flex-col justify-between border-l-2 border-red-500">
+            <div class="flex items-center justify-between pb-1">
+                <span class="text-[10px] uppercase font-bold text-red-400 tracking-wider">Inaptos (Desclassificados)</span>
+                <i data-lucide="x-circle" class="w-3.5 h-3.5 metric-danger"></i>
+            </div>
+            <div class="mt-2 flex items-baseline gap-2">
+                <span class="text-2xl font-bold font-mono metric-danger tracking-tight" id="prem-kpi-inaptos">0</span>
+                <span class="text-[11px] font-mono text-red-400 font-bold" id="prem-kpi-inaptos-pct">0%</span>
+            </div>
+            <span class="text-[11px] text-red-300 font-semibold mt-1 block">[FAIL] Excederam 80 km/h</span>
+        </div>
+
+        <!-- KPI 4: Caminhões sem Excesso -->
+        <div class="telemetry-panel p-4 flex flex-col justify-between">
+            <div class="flex items-center justify-between pb-1">
+                <span class="text-[10px] uppercase font-bold text-tech-muted tracking-wider">Caminhões Conformes</span>
+                <i data-lucide="truck" class="w-3.5 h-3.5 metric-brand"></i>
+            </div>
+            <div class="mt-2">
+                <span class="text-2xl font-bold font-mono text-main tracking-tight" id="prem-kpi-trucks">0 / 0</span>
+            </div>
+            <span class="text-[11px] text-tech-muted mt-1 block">Placas sem registro &gt; 80 km/h</span>
+        </div>
+
+        <!-- KPI 5: Pior Excesso -->
+        <div class="telemetry-panel p-4 flex flex-col justify-between">
+            <div class="flex items-center justify-between pb-1">
+                <span class="text-[10px] uppercase font-bold text-tech-muted tracking-wider">Maior Pico Registrado</span>
+                <i data-lucide="gauge" class="w-3.5 h-3.5 metric-danger"></i>
+            </div>
+            <div class="mt-2" id="prem-kpi-worst">
+                <span class="text-2xl font-bold font-mono metric-danger tracking-tight">0 km/h</span>
+            </div>
+            <span class="text-[11px] text-tech-muted mt-1 block">Pior velocidade no período</span>
+        </div>
+
+        <!-- KPI 6: Taxa de Conformidade Geral -->
+        <div class="telemetry-panel p-4 flex flex-col justify-between">
+            <div class="flex items-center justify-between pb-1">
+                <span class="text-[10px] uppercase font-bold text-tech-muted tracking-wider">Conformidade Geral</span>
+                <i data-lucide="activity" class="w-3.5 h-3.5 metric-brand"></i>
+            </div>
+            <div class="mt-2">
+                <span class="text-2xl font-bold font-mono metric-brand tracking-tight" id="prem-kpi-rate">0%</span>
+            </div>
+            <span class="text-[11px] text-tech-muted mt-1 block">Alertas dentro do teto de 80</span>
+        </div>
+    </div>
+
+    <!-- Hall de Reconhecimento: Motoristas Aptos -->
+    <div class="telemetry-panel p-5 space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-hairline">
+            <div class="flex items-center gap-2.5">
+                <i data-lucide="trophy" class="w-4 h-4 metric-brand"></i>
+                <div>
+                    <h3 class="text-sm font-bold text-main uppercase tracking-wider">
+                        Motoristas Aptos à Premiação (Direção Exemplar)
+                    </h3>
+                    <p class="text-xs text-tech-muted mt-0.5">
+                        Condutores que operaram caminhões mantendo velocidade máxima estritamente ≤ 80 km/h no período avaliado
+                    </p>
+                </div>
+            </div>
+            <span class="text-[11px] font-mono px-2 py-0.5 rounded panel-subsurface text-csg-400 font-bold uppercase">
+                PARECER FAVORÁVEL AO PAGAMENTO
+            </span>
+        </div>
+
+        <div id="premiacao-podium-cards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+            <!-- Cards populated dynamically -->
+        </div>
+    </div>
+
+    <!-- Gráficos Analíticos de Premiação -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        <!-- Gráfico de Termômetro por Motorista vs 80 km/h (7 cols) -->
+        <div class="lg:col-span-7 telemetry-panel p-5 flex flex-col justify-between">
+            <div>
+                <div class="flex flex-wrap items-center justify-between gap-2 pb-3 mb-3 border-b border-hairline">
+                    <div>
+                        <h3 class="text-sm font-bold text-main uppercase tracking-wider flex items-center gap-2">
+                            <i data-lucide="bar-chart-horizontal" class="w-4 h-4 metric-brand"></i>
+                            Velocidade Máxima por Motorista vs Teto (80 km/h)
+                        </h3>
+                        <p class="text-xs text-tech-muted mt-0.5">
+                            Verde = Apto (≤ 80 km/h) | Vermelho = Desclassificado (&gt; 80 km/h).
+                        </p>
+                    </div>
+                    <span class="text-[11px] font-mono px-2 py-0.5 rounded panel-subsurface text-tech-muted uppercase">
+                        LINHA DE CORTE
+                    </span>
+                </div>
+            </div>
+            <div class="h-80 w-full">
+                <canvas id="chart-premiacao-drivers"></canvas>
+            </div>
+        </div>
+
+        <!-- Gráfico de Conformidade por Categoria de Caminhão (5 cols) -->
+        <div class="lg:col-span-5 telemetry-panel p-5 flex flex-col justify-between">
+            <div>
+                <div class="flex flex-wrap items-center justify-between gap-2 pb-3 mb-3 border-b border-hairline">
+                    <div>
+                        <h3 class="text-sm font-bold text-main uppercase tracking-wider flex items-center gap-2">
+                            <i data-lucide="layers" class="w-4 h-4 metric-brand"></i>
+                            Conformidade por Tipo de Caminhão
+                        </h3>
+                        <p class="text-xs text-tech-muted mt-0.5">
+                            Proporção de ocorrências conformes (≤ 80 km/h) e violações (&gt; 80 km/h) por tipo de veículo
+                        </p>
+                    </div>
+                    <span class="text-[11px] font-mono px-2 py-0.5 rounded panel-subsurface text-tech-muted uppercase">
+                        POR CATEGORIA
+                    </span>
+                </div>
+            </div>
+            <div class="h-80 w-full">
+                <canvas id="chart-premiacao-categories"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Matriz Detalhada: Motorista x Caminhão -->
+    <div class="telemetry-panel p-5 space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-hairline">
+            <div class="flex items-center gap-2.5">
+                <i data-lucide="table" class="w-4 h-4 metric-brand"></i>
+                <div>
+                    <h3 class="text-sm font-bold text-main uppercase tracking-wider">
+                        Matriz Analítica: Motorista x Caminhão Conduzido
+                    </h3>
+                    <p class="text-xs text-tech-muted mt-0.5">
+                        Detalhamento individual de cada combinação Condutor ⟷ Caminhão, com velocidade máxima, excesso sobre o teto e status
+                    </p>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3">
+                <div class="relative w-64">
+                    <i data-lucide="search" class="w-3.5 h-3.5 text-tech-muted absolute left-3 top-1/2 -translate-y-1/2"></i>
+                    <input type="text" id="premiacao-search-input" oninput="handlePremiacaoSearch()" placeholder="Buscar condutor ou caminhão..." class="theme-input w-full pl-8 pr-3 py-1.5 text-xs">
+                </div>
+                <span id="premiacao-table-count" class="text-xs font-mono text-tech-muted panel-subsurface px-2.5 py-1 rounded">
+                    0 combinações
+                </span>
+            </div>
+        </div>
+
+        <!-- Table Wrapper -->
+        <div tabindex="0" role="region" aria-label="Tabela de Premiação Motorista x Caminhão" class="table-wrapper max-h-[500px]">
+            <table class="industrial-table">
+                <thead>
+                    <tr>
+                        <th>Status Premiação</th>
+                        <th>Motorista Identificado</th>
+                        <th>Caminhão / Placa</th>
+                        <th class="text-right">Vel. Máxima</th>
+                        <th class="text-right">Delta Teto (80)</th>
+                        <th class="text-center">Total Alertas</th>
+                        <th class="text-center">Violações (&gt;80)</th>
+                        <th>Pior Registro em</th>
+                        <th class="text-center">Auditoria</th>
+                    </tr>
+                </thead>
+                <tbody id="premiacao-table-body">
+                    <!-- Populated dynamically -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Table Pagination -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 text-xs text-tech-muted border-t border-hairline">
+            <div class="flex items-center gap-2">
+                <label for="premiacao-page-size" class="uppercase text-[10px] font-bold tracking-wider">Linhas por página:</label>
+                <select id="premiacao-page-size" onchange="changePremiacaoPageSize(this.value)" class="theme-input px-2.5 py-1 text-xs font-mono">
+                    <option value="10" selected>10 linhas</option>
+                    <option value="20">20 linhas</option>
+                    <option value="50">50 linhas</option>
+                    <option value="ALL">Todas as linhas</option>
+                </select>
+            </div>
+            <div class="flex items-center gap-3">
+                <span id="premiacao-page-indicator" class="font-mono">Página 1 de 1</span>
+                <div class="flex items-center gap-1.5">
+                    <button type="button" id="premiacao-prev-btn" onclick="prevPremiacaoPage()" class="btn-industrial px-2.5 py-1 text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed">
+                        Anterior
+                    </button>
+                    <button type="button" id="premiacao-next-btn" onclick="nextPremiacaoPage()" class="btn-industrial px-2.5 py-1 text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed">
+                        Próxima
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alerta de Governança para Veículos Sem Identificação -->
+    <div class="telemetry-panel p-4 rounded-lg bg-surface border-l-4 border-amber-500 flex items-start gap-3">
+        <i data-lucide="shield-alert" class="w-5 h-5 metric-warning shrink-0 mt-0.5"></i>
+        <div class="space-y-1 text-xs">
+            <h4 class="font-bold text-main uppercase tracking-wider">
+                Nota de Governança Operacional: Condução sem Identificação (iButton)
+            </h4>
+            <p class="text-sub">
+                Ocorrências registradas com o motorista classificado como <strong>"Sem Identificação"</strong> foram desconsideradas para efeito de premiação individual, pois o regulamento da premiação corporativa exige a identificação fidedigna do condutor no tacógrafo/rastreador. Essas infrações são auditadas exclusivamente na aba de Auditoria de Veículos sem Identificação.
+            </p>
+        </div>
+    </div>
+</div>

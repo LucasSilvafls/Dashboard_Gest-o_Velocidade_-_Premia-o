@@ -1,0 +1,126 @@
+<!-- ========================================== -->
+<!-- TAB 2: GESTÃO DE RISCO & SEGURANÇA         -->
+<!-- ========================================== -->
+<div id="view-safety" class="tab-content hidden space-y-5">
+    <!-- Strategic Governance Warning Box -->
+    <div class="governance-banner p-5 telemetry-panel border-l-4 border-l-amber-500">
+        <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+            <div class="flex items-start gap-3.5">
+                <div class="p-2.5 rounded panel-subsurface metric-warning shrink-0 mt-0.5">
+                    <i data-lucide="alert-octagon" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="risk-badge risk-badge-high">Ponto de Atenção para a Gestão</span>
+                        <h3 id="gov-banner-title" class="text-sm font-bold text-main uppercase tracking-wide">
+                            Excessos Sem Motorista Identificado: <span class="font-mono metric-danger">44,1%</span> (3.992 casos)
+                        </h3>
+                    </div>
+                    <p id="gov-banner-desc" class="text-xs text-sub mt-1.5 max-w-4xl leading-relaxed">
+                        Das <span class="font-mono font-semibold text-main">9.051</span> ocorrências de velocidade, <strong class="font-mono font-semibold metric-warning">3.992 casos</strong> aconteceram sem que o motorista passasse o crachá/chaveiro (iButton) no painel do veículo. O caso mais grave foi do veículo <strong class="font-mono font-bold text-main">RWG3A16</strong>, que chegou a <strong class="font-mono font-bold metric-danger">158 km/h</strong> na rodovia <span class="font-mono">MS-436</span> sem identificação do condutor.
+                    </p>
+                    <p class="text-[11px] text-tech-muted font-mono mt-1">
+                        AÇÃO RECOMENDADA: Orientar os líderes e condutores sobre a obrigatoriedade do crachá antes da saída e verificar o aviso sonoro nos veículos.
+                    </p>
+                </div>
+            </div>
+            <button type="button" onclick="filterUnidentifiedOnly()" class="btn-primary-green px-4 py-2 text-xs font-semibold shrink-0 flex items-center gap-2 cursor-pointer">
+                <i data-lucide="filter" class="w-3.5 h-3.5"></i>
+                <span>Ver Apenas Casos Sem Motorista</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Risk Matrix & Telemetry Ecosystem -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        <!-- Extreme Cases Table (7 cols) -->
+        <div class="lg:col-span-7 telemetry-panel p-5 flex flex-col justify-between">
+            <div>
+                <div class="flex flex-wrap items-center justify-between gap-2 pb-3 mb-3 border-b border-hairline">
+                    <div>
+                        <h3 id="extreme-table-heading" class="text-sm font-bold text-main uppercase tracking-wider flex items-center gap-2">
+                            <i data-lucide="flame" class="w-4 h-4 metric-danger"></i>
+                            Os 10 Casos Mais Graves de Velocidade
+                        </h3>
+                        <p class="text-xs text-tech-muted mt-0.5">
+                            Lista das maiores velocidades registradas no período selecionado (clique em uma linha para ver a ficha completa)
+                        </p>
+                    </div>
+                    <span id="badge-extreme-record" class="risk-badge risk-badge-high">Recorde: 158 km/h</span>
+                </div>
+            </div>
+            <div tabindex="0" role="region" aria-labelledby="extreme-table-heading" class="table-wrapper">
+                <table class="industrial-table">
+                    <thead>
+                        <tr>
+                            <th>Data e Hora</th>
+                            <th>Veículo (Placa)</th>
+                            <th>Tipo de Veículo</th>
+                            <th>Motorista</th>
+                            <th class="text-right">Limite</th>
+                            <th class="text-right">Velocidade</th>
+                            <th class="text-right">Passou</th>
+                            <th>Local / Rodovia</th>
+                        </tr>
+                    </thead>
+                    <tbody id="extreme-cases-table">
+                        <!-- Populated dynamically -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Telemetry Context Donut (5 cols) -->
+        <div class="lg:col-span-5 telemetry-panel p-5 flex flex-col justify-between">
+            <div>
+                <div class="flex flex-wrap items-center justify-between gap-2 pb-3 mb-3 border-b border-hairline">
+                    <div>
+                        <h3 class="text-sm font-bold text-main uppercase tracking-wider flex items-center gap-2">
+                            <i data-lucide="pie-chart" class="w-4 h-4 metric-brand"></i>
+                            Comparativo com Outros Alertas da Frota
+                        </h3>
+                        <p class="text-xs text-tech-muted mt-0.5">
+                            Mostra quanto o excesso de velocidade representa perto de outros alertas do rastreador (fadiga, celular, motor ocioso)
+                        </p>
+                    </div>
+                    <span id="telem-total-badge" class="text-[11px] font-mono font-semibold px-2 py-0.5 rounded panel-subsurface metric-brand">
+                        TOTAL GERAL: 16.067
+                    </span>
+                </div>
+            </div>
+            <div class="h-60 w-full flex items-center justify-center my-2">
+                <canvas id="chart-telemetry-context"></canvas>
+            </div>
+            <div class="grid grid-cols-2 gap-2.5 pt-3 border-t border-hairline text-xs">
+                <div class="panel-subsurface px-2.5 py-1.5 flex items-center justify-between">
+                    <span class="flex items-center gap-2 text-sub">
+                        <span class="w-2.5 h-2.5 rounded-sm bg-[#dc2626] shrink-0"></span>
+                        <span>Excesso Velocidade</span>
+                    </span>
+                    <span id="telem-stat-speed" class="font-mono font-bold text-main">9.051 <span class="text-tech-muted font-normal">(56,3%)</span></span>
+                </div>
+                <div class="panel-subsurface px-2.5 py-1.5 flex items-center justify-between">
+                    <span class="flex items-center gap-2 text-sub">
+                        <span class="w-2.5 h-2.5 rounded-sm bg-[#d97706] shrink-0"></span>
+                        <span>Parado Motor Ligado</span>
+                    </span>
+                    <span id="telem-stat-idle" class="font-mono font-bold text-main">2.640 <span class="text-tech-muted font-normal">(16,4%)</span></span>
+                </div>
+                <div class="panel-subsurface px-2.5 py-1.5 flex items-center justify-between">
+                    <span class="flex items-center gap-2 text-sub">
+                        <span class="w-2.5 h-2.5 rounded-sm bg-[#0284c7] shrink-0"></span>
+                        <span>Sono / Fadiga / DMS</span>
+                    </span>
+                    <span id="telem-stat-fatigue" class="font-mono font-bold text-main">1.215 <span class="text-tech-muted font-normal">(7,6%)</span></span>
+                </div>
+                <div class="panel-subsurface px-2.5 py-1.5 flex items-center justify-between">
+                    <span class="flex items-center gap-2 text-sub">
+                        <span class="w-2.5 h-2.5 rounded-sm bg-[#64748b] shrink-0"></span>
+                        <span>Celular / Distração</span>
+                    </span>
+                    <span id="telem-stat-other" class="font-mono font-bold text-main">1.547 <span class="text-tech-muted font-normal">(9,6%)</span></span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

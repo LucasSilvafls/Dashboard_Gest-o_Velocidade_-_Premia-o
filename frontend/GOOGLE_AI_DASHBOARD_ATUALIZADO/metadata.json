@@ -1,0 +1,6 @@
+{
+  "name": "Casagrande Telemetria & Gestão de Velocidades",
+  "description": "Painel executivo e operacional de telemetria de frotas, auditoria de velocidades, compliance e premiação de motoristas para Casagrande Locações & Transportes.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

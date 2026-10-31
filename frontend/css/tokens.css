@@ -1,0 +1,129 @@
+/* ==========================================================================
+   INDUSTRIAL TELEMETRY DESIGN SYSTEM TOKENS (HIGH PRECISION LIGHT & DARK)
+   Casagrande Locações e Transportes • Unidade Operacional CSG
+   ========================================================================== */
+:root {
+    color-scheme: light dark;
+
+    /* Brand Tokens (Casagrande Green Identity) */
+    --brand-accent-light: #16a34a;
+    --brand-accent-dark: #22c55e;
+    --brand-surface-light: #f0fdf4;
+    --brand-surface-dark: rgba(34, 197, 94, 0.12);
+    --brand-border-light: #bbf7d0;
+    --brand-border-dark: rgba(34, 197, 94, 0.28);
+
+    /* High-Contrast Obsidian Surface Architecture (Dark CCO Mode) */
+    --bg-page-dark: #0a0d12;
+    --bg-header-dark: #0e131b;
+    --bg-card-dark: #121824;
+    --bg-surface-dark: #172030;
+    --bg-hover-dark: #1d293d;
+
+    /* Clean Executive Surface Architecture (Light Report Mode) */
+    --bg-page-light: #f4f6f9;
+    --bg-header-light: #ffffff;
+    --bg-card-light: #ffffff;
+    --bg-surface-light: #f8fafc;
+    --bg-hover-light: #edf2f7;
+
+    /* Precision Hairline Borders */
+    --border-hairline-dark: rgba(255, 255, 255, 0.08);
+    --border-hairline-light: rgba(15, 23, 42, 0.08);
+    --border-main-dark: rgba(255, 255, 255, 0.16);
+    --border-main-light: #cbd5e1;
+
+    /* Balanced Hierarchy Typography */
+    --text-main-dark: #f8fafc;
+    --text-main-light: #0f172a;
+    --text-sub-dark: #cbd5e1;
+    --text-sub-light: #334155;
+    --text-muted-dark: #8191a6;
+    --text-muted-light: #64748b;
+
+    /* Severity & Metric Semantics */
+    --metric-danger-dark: #f87171;
+    --metric-danger-light: #dc2626;
+    --metric-warning-dark: #fbbf24;
+    --metric-warning-light: #d97706;
+    --metric-brand-dark: #4ade80;
+    --metric-brand-light: #16a34a;
+    --metric-info-dark: #38bdf8;
+    --metric-info-light: #0284c7;
+
+    /* Active Resolution Default (Dark) */
+    --bg-page: var(--bg-page-dark);
+    --bg-header: var(--bg-header-dark);
+    --bg-card: var(--bg-card-dark);
+    --bg-surface: var(--bg-surface-dark);
+    --bg-hover: var(--bg-hover-dark);
+    --border-hairline: var(--border-hairline-dark);
+    --border-main: var(--border-main-dark);
+    --text-main: var(--text-main-dark);
+    --text-sub: var(--text-sub-dark);
+    --text-muted: var(--text-muted-dark);
+    --brand-accent: var(--brand-accent-dark);
+    --brand-surface: var(--brand-surface-dark);
+    --brand-border: var(--brand-border-dark);
+    --metric-danger: var(--metric-danger-dark);
+    --metric-warning: var(--metric-warning-dark);
+    --metric-brand: var(--metric-brand-dark);
+    --metric-info: var(--metric-info-dark);
+}
+
+html.light {
+    --bg-page: var(--bg-page-light);
+    --bg-header: var(--bg-header-light);
+    --bg-card: var(--bg-card-light);
+    --bg-surface: var(--bg-surface-light);
+    --bg-hover: var(--bg-hover-light);
+    --border-hairline: var(--border-hairline-light);
+    --border-main: var(--border-main-light);
+    --text-main: var(--text-main-light);
+    --text-sub: var(--text-sub-light);
+    --text-muted: var(--text-muted-light);
+    --brand-accent: var(--brand-accent-light);
+    --brand-surface: var(--brand-surface-light);
+    --brand-border: var(--brand-border-light);
+    --metric-danger: var(--metric-danger-light);
+    --metric-warning: var(--metric-warning-light);
+    --metric-brand: var(--metric-brand-light);
+    --metric-info: var(--metric-info-light);
+}
+
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+html, body {
+    overflow-x: hidden;
+    width: 100%;
+    max-width: 100vw;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background-color: var(--bg-page);
+    color: var(--text-main);
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
+
+.font-mono {
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+    font-feature-settings: "tnum" 1, "zero" 1;
+}
+
+.metric-danger { color: var(--metric-danger); }
+.metric-warning { color: var(--metric-warning); }
+.metric-brand { color: var(--brand-accent); }
+.text-main { color: var(--text-main); }
+.text-sub { color: var(--text-sub); }
+.text-tech-muted { color: var(--text-muted); }
+
+.logo-light { display: none; }
+.logo-dark { display: block; }
+html.light .logo-light { display: block; }
+html.light .logo-dark { display: none; }

@@ -1,0 +1,255 @@
+<!-- ======================================================= -->
+<!-- TAB 7: PAINEL ADMINISTRATIVO, UPLOAD & GESTÃO USUÁRIOS -->
+<!-- ======================================================= -->
+<div id="view-admin" class="tab-content space-y-6 hidden">
+    <!-- Security & Governance Banner -->
+    <div class="telemetry-panel p-4 rounded-lg bg-surface border-l-4 border-csg-500 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div class="flex items-start gap-3">
+            <div class="w-10 h-10 rounded-lg bg-csg-500/10 border border-csg-500/30 flex items-center justify-center text-csg-400 shrink-0">
+                <i data-lucide="shield-check" class="w-5 h-5"></i>
+            </div>
+            <div>
+                <h3 class="text-sm font-bold text-main uppercase tracking-wider flex items-center gap-2">
+                    Painel de Controle e Ingestão de Telemetria CSG
+                    <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                        ACESSO RESTRITO (ADMIN)
+                    </span>
+                </h3>
+                <p class="text-xs text-tech-muted mt-0.5">
+                    Área exclusiva para envio de planilhas de telemetria, pipeline ETL relacional com deduplicação e controle de acessos (RBAC).
+                </p>
+            </div>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+            <button type="button" onclick="fetchLotesHistory()" class="btn-industrial px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5 cursor-pointer">
+                <i data-lucide="history" class="w-3.5 h-3.5 metric-brand"></i>
+                <span>Atualizar Lotes</span>
+            </button>
+            <button type="button" onclick="fetchDashboardData(true)" class="btn-primary-green px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5 cursor-pointer">
+                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                <span>Sincronizar Dashboard</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Section 1: Ingestão de Planilhas & Auditoria de Lotes -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        <!-- Left: Upload & Ingestion (5 cols) -->
+        <div class="lg:col-span-5 telemetry-panel p-5 space-y-4">
+            <div class="border-b border-hairline pb-3">
+                <h4 class="text-xs font-bold text-main uppercase tracking-wider flex items-center gap-2">
+                    <i data-lucide="file-up" class="w-4 h-4 metric-brand"></i>
+                    Upload de Nova Planilha de Telemetria
+                </h4>
+                <p class="text-[11px] text-tech-muted mt-1">
+                    Formatos suportados: <strong>.xlsx, .xls, .csv</strong>. Os dados são validados e persistidos na base relacional (telemetria.db).
+                </p>
+            </div>
+
+            <!-- Drag & Drop Zone -->
+            <div id="admin-drop-zone" class="border-2 border-dashed border-main rounded-lg p-6 text-center cursor-pointer hover:border-brand-accent transition-all bg-surface group">
+                <input type="file" id="admin-file-input" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleAdminFileSelect(event)">
+                <div class="w-12 h-12 rounded-full bg-csg-500/10 border border-csg-500/30 flex items-center justify-center mx-auto mb-3 text-csg-400 group-hover:scale-110 transition-transform">
+                    <i data-lucide="upload-cloud" class="w-6 h-6"></i>
+                </div>
+                <p class="text-xs text-main font-semibold" id="admin-drop-text">
+                    Arraste a planilha (.xlsx / .csv) aqui ou <span class="text-csg-400 underline">clique para procurar</span>
+                </p>
+                <p class="text-[11px] text-tech-muted mt-1.5" id="admin-file-hint">
+                    Planilhas de alertas Sascar, Autotrac, ou histórico consolidado Casagrande
+                </p>
+            </div>
+
+            <!-- Selected File Info Card -->
+            <div id="admin-selected-file-card" class="p-3 rounded-lg panel-subsurface border border-hairline flex items-center justify-between gap-3 hidden">
+                <div class="flex items-center gap-2.5 overflow-hidden">
+                    <i data-lucide="file-spreadsheet" class="w-5 h-5 metric-brand shrink-0"></i>
+                    <div class="truncate">
+                        <span class="font-mono font-bold text-main text-xs block truncate" id="admin-selected-filename">Historico_Alertas.xlsx</span>
+                        <span class="text-[10px] text-tech-muted block" id="admin-selected-filesize">2.4 MB</span>
+                    </div>
+                </div>
+                <button type="button" onclick="clearAdminSelectedFile()" class="text-tech-muted hover:text-red-400 p-1 rounded hover:bg-hover cursor-pointer" title="Remover arquivo selecionado">
+                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                </button>
+            </div>
+
+            <!-- Options: Mode & Export JSON -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <div>
+                    <label for="admin-upload-mode" class="block text-[10px] font-bold text-tech-muted uppercase tracking-wider mb-1.5">
+                        Estratégia de Ingestão:
+                    </label>
+                    <select id="admin-upload-mode" class="theme-input w-full px-2.5 py-1.5 text-xs font-mono font-semibold">
+                        <option value="upsert" selected>Upsert (Recomendado)</option>
+                        <option value="clean_insert">Clean Insert</option>
+                        <option value="replace">Replace Total (Zerar)</option>
+                    </select>
+                </div>
+                <div class="flex flex-col justify-end">
+                    <label class="flex items-center gap-2 p-2 rounded panel-subsurface border border-hairline cursor-pointer text-xs">
+                        <input type="checkbox" id="admin-export-json" checked class="rounded border-main text-csg-500 focus:ring-csg-500">
+                        <span class="text-sub font-medium text-[11px]">Exportar JSON do Dashboard</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="button" id="admin-upload-btn" onclick="submitAdminUpload()" class="btn-primary-green w-full py-2.5 px-4 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 shadow-md hover:shadow-lg cursor-pointer">
+                <i data-lucide="database-zap" class="w-4 h-4"></i>
+                <span id="admin-upload-btn-text">Iniciar Upload e Ingestão</span>
+            </button>
+
+            <!-- Upload Status & Progress Feedback Box -->
+            <div id="admin-upload-status" class="hidden space-y-2.5 pt-2">
+                <div class="flex items-center justify-between text-xs">
+                    <span class="font-bold text-main flex items-center gap-1.5">
+                        <i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin metric-brand"></i>
+                        <span id="admin-progress-label">Processando...</span>
+                    </span>
+                    <span id="admin-progress-pct" class="font-mono text-csg-400 font-bold">0%</span>
+                </div>
+                <div class="w-full h-2 bg-surface rounded-full overflow-hidden border border-hairline">
+                    <div id="admin-progress-bar" class="h-full bg-gradient-to-r from-csg-600 to-csg-400 transition-all duration-300 w-0"></div>
+                </div>
+            </div>
+
+            <!-- Result Box -->
+            <div id="admin-result-box"></div>
+        </div>
+
+        <!-- Right: Ingested Batches Audit Table (7 cols) -->
+        <div class="lg:col-span-7 telemetry-panel p-5 flex flex-col justify-between">
+            <div>
+                <div class="flex flex-wrap items-center justify-between gap-2 pb-3 mb-3 border-b border-hairline">
+                    <div>
+                        <h4 class="text-xs font-bold text-main uppercase tracking-wider flex items-center gap-2">
+                            <i data-lucide="file-check-2" class="w-4 h-4 metric-brand"></i>
+                            Trilha de Auditoria: Lotes Ingeridos no Banco
+                        </h4>
+                        <p class="text-[11px] text-tech-muted mt-0.5">
+                            Histórico de uploads realizados com contagem de alertas processados, operador e status
+                        </p>
+                    </div>
+                    <span id="lotes-counter" class="text-[10px] font-mono font-bold px-2 py-0.5 rounded panel-subsurface text-tech-muted">
+                        CARREGANDO...
+                    </span>
+                </div>
+            </div>
+
+            <div tabindex="0" role="region" aria-label="Tabela de Lotes Ingeridos" class="table-wrapper max-h-[380px]">
+                <table class="industrial-table">
+                    <thead>
+                        <tr>
+                            <th>Lote</th>
+                            <th>Data/Hora</th>
+                            <th>Arquivo</th>
+                            <th class="text-right">Linhas</th>
+                            <th class="text-right">Velocidade</th>
+                            <th>Status</th>
+                            <th>Operador</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-lotes-tbody">
+                        <!-- Populated dynamically via fetchLotesHistory() -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section 2: Gestão de Usuários & Controle de Acesso (RBAC) -->
+    <div class="telemetry-panel p-5 space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-hairline">
+            <div class="flex items-center gap-2.5">
+                <i data-lucide="user-cog" class="w-5 h-5 metric-brand"></i>
+                <div>
+                    <h4 class="text-sm font-bold text-main uppercase tracking-wider">
+                        Gestão de Usuários e Perfis de Acesso (RBAC)
+                    </h4>
+                    <p class="text-xs text-tech-muted mt-0.5">
+                        Gerencie os analistas do SESMT e supervisores autorizados a operar a plataforma
+                    </p>
+                </div>
+            </div>
+            <span id="users-counter" class="text-xs font-mono text-tech-muted panel-subsurface px-2.5 py-1 rounded">
+                CARREGANDO...
+            </span>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+            <!-- Left: Formulário Novo Usuário (5 cols) -->
+            <form id="create-user-form" onsubmit="handleCreateUserSubmit(event)" class="lg:col-span-5 p-4 rounded-lg panel-subsurface space-y-3 text-xs">
+                <h5 class="text-xs font-bold text-main uppercase tracking-wider flex items-center gap-1.5 pb-2 border-b border-hairline">
+                    <i data-lucide="user-plus" class="w-3.5 h-3.5 metric-brand"></i>
+                    Cadastrar Novo Usuário
+                </h5>
+
+                <div>
+                    <label for="new-user-username" class="block text-[10px] font-bold text-tech-muted uppercase tracking-wider mb-1">
+                        Matrícula / Usuário *:
+                    </label>
+                    <input type="text" id="new-user-username" required placeholder="ex: joao.silva" class="theme-input w-full px-2.5 py-1.5 text-xs font-mono">
+                </div>
+
+                <div>
+                    <label for="new-user-nome" class="block text-[10px] font-bold text-tech-muted uppercase tracking-wider mb-1">
+                        Nome Completo:
+                    </label>
+                    <input type="text" id="new-user-nome" placeholder="ex: João da Silva" class="theme-input w-full px-2.5 py-1.5 text-xs">
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div>
+                        <label for="new-user-email" class="block text-[10px] font-bold text-tech-muted uppercase tracking-wider mb-1">
+                            E-mail:
+                        </label>
+                        <input type="email" id="new-user-email" placeholder="joao@casagrande.com.br" class="theme-input w-full px-2.5 py-1.5 text-xs font-mono">
+                    </div>
+                    <div>
+                        <label for="new-user-role" class="block text-[10px] font-bold text-tech-muted uppercase tracking-wider mb-1">
+                            Papel (Role) *:
+                        </label>
+                        <select id="new-user-role" class="theme-input w-full px-2.5 py-1.5 text-xs font-semibold">
+                            <option value="viewer" selected>Viewer (Visualizador)</option>
+                            <option value="admin">Admin (Administrador)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label for="new-user-password" class="block text-[10px] font-bold text-tech-muted uppercase tracking-wider mb-1">
+                        Senha Temporária *:
+                    </label>
+                    <input type="password" id="new-user-password" required placeholder="••••••••" class="theme-input w-full px-2.5 py-1.5 text-xs font-mono">
+                </div>
+
+                <button type="submit" id="new-user-submit-btn" class="btn-primary-green w-full py-2 px-3 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer mt-2">
+                    <i data-lucide="check" class="w-3.5 h-3.5"></i>
+                    <span>Criar Conta de Acesso</span>
+                </button>
+            </form>
+
+            <!-- Right: Lista de Usuários (7 cols) -->
+            <div class="lg:col-span-7">
+                <div tabindex="0" role="region" aria-label="Tabela de Usuários Cadastrados" class="table-wrapper max-h-[300px]">
+                    <table class="industrial-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Usuário</th>
+                                <th>Nome Completo</th>
+                                <th>E-mail</th>
+                                <th>Perfil</th>
+                                <th>Data Cadastro</th>
+                            </tr>
+                        </thead>
+                        <tbody id="admin-users-tbody">
+                            <!-- Populated dynamically via fetchUsersList() -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

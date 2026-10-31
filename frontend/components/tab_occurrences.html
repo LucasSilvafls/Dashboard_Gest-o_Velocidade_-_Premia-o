@@ -1,0 +1,84 @@
+<!-- ========================================== -->
+<!-- TAB 4: LISTA COMPLETA DE OCORRÊNCIAS       -->
+<!-- ========================================== -->
+<div id="view-table-view" class="tab-content hidden space-y-5">
+    <div class="telemetry-panel p-5 space-y-4">
+        <!-- Controls: Search & Page Size -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-hairline">
+            <div class="relative flex-1 max-w-md">
+                <label for="table-search-input" class="sr-only">Buscar ocorrências na tabela</label>
+                <i data-lucide="search" class="w-4 h-4 text-tech-muted absolute left-3 top-1/2 -translate-y-1/2"></i>
+                <input type="text" id="table-search-input" oninput="handleTableSearch()" placeholder="Digite uma placa, categoria, motorista, rodovia ou cidade..." class="theme-input w-full pl-9 pr-3 py-1.5 text-xs">
+            </div>
+            <div class="flex flex-wrap items-center gap-3">
+                <div class="flex items-center gap-2 text-xs text-tech-muted">
+                    <label for="table-page-size" class="uppercase text-[10px] font-bold tracking-wider">Linhas por página:</label>
+                    <select id="table-page-size" onchange="changePageSize(this.value)" class="theme-input px-2.5 py-1.5 text-xs font-mono">
+                        <option value="15">15 linhas</option>
+                        <option value="25" selected>25 linhas</option>
+                        <option value="50">50 linhas</option>
+                        <option value="100">100 linhas</option>
+                    </select>
+                </div>
+                <button type="button" onclick="exportFilteredCSV()" class="btn-primary-green px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5 cursor-pointer">
+                    <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i>
+                    <span>Baixar Lista em Excel (CSV)</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Table Content -->
+        <div tabindex="0" role="region" aria-label="Lista Completa de Ocorrências de Velocidade" class="table-wrapper max-h-[640px]">
+            <table class="industrial-table">
+                <thead>
+                    <tr>
+                        <th class="cursor-pointer hover:text-main select-none" onclick="sortTable('id')">
+                            <span class="inline-flex items-center gap-1">Nº <i data-lucide="arrow-up-down" class="w-3 h-3 opacity-60"></i></span>
+                        </th>
+                        <th class="cursor-pointer hover:text-main select-none" onclick="sortTable('data')">
+                            <span class="inline-flex items-center gap-1">Data e Hora <i data-lucide="arrow-up-down" class="w-3 h-3 opacity-60"></i></span>
+                        </th>
+                        <th class="cursor-pointer hover:text-main select-none" onclick="sortTable('placa')">
+                            <span class="inline-flex items-center gap-1">Veículo (Placa) <i data-lucide="arrow-up-down" class="w-3 h-3 opacity-60"></i></span>
+                        </th>
+                        <th class="cursor-pointer hover:text-main select-none" onclick="sortTable('categoria')">
+                            <span class="inline-flex items-center gap-1">Tipo de Veículo <i data-lucide="arrow-up-down" class="w-3 h-3 opacity-60"></i></span>
+                        </th>
+                        <th class="cursor-pointer hover:text-main select-none" onclick="sortTable('motorista')">
+                            <span class="inline-flex items-center gap-1">Motorista <i data-lucide="arrow-up-down" class="w-3 h-3 opacity-60"></i></span>
+                        </th>
+                        <th class="cursor-pointer hover:text-main select-none text-right" onclick="sortTable('limiar')">
+                            <span class="inline-flex items-center justify-end gap-1">Limite da Via <i data-lucide="arrow-up-down" class="w-3 h-3 opacity-60"></i></span>
+                        </th>
+                        <th class="cursor-pointer hover:text-main select-none text-right" onclick="sortTable('velocidade')">
+                            <span class="inline-flex items-center justify-end gap-1">Velocidade Atingida <i data-lucide="arrow-up-down" class="w-3 h-3 opacity-60"></i></span>
+                        </th>
+                        <th class="cursor-pointer hover:text-main select-none text-right" onclick="sortTable('delta')">
+                            <span class="inline-flex items-center justify-end gap-1">Acima do Limite <i data-lucide="arrow-up-down" class="w-3 h-3 opacity-60"></i></span>
+                        </th>
+                        <th class="cursor-pointer hover:text-main select-none text-right" onclick="sortTable('duracao_sec')">
+                            <span class="inline-flex items-center justify-end gap-1">Tempo Correndo <i data-lucide="arrow-up-down" class="w-3 h-3 opacity-60"></i></span>
+                        </th>
+                        <th class="cursor-pointer hover:text-main select-none" onclick="sortTable('nivel')">
+                            <span class="inline-flex items-center gap-1">Gravidade <i data-lucide="arrow-up-down" class="w-3 h-3 opacity-60"></i></span>
+                        </th>
+                        <th>Local / Rodovia</th>
+                        <th>Cidade</th>
+                        <th class="text-center">Ver Ficha</th>
+                    </tr>
+                </thead>
+                <tbody id="alerts-table-body">
+                    <!-- Populated dynamically -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Table Pagination -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 text-xs text-tech-muted">
+            <span id="table-pagination-info" class="font-mono">Mostrando 0 de 0</span>
+            <div class="flex items-center gap-2" id="table-pagination-buttons">
+                <!-- Populated dynamically -->
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,149 @@
+<!-- ======================================================== -->
+<!-- TAB 6: AUDITORIA DE VEÍCULOS SEM IDENTIFICAÇÃO (iButton) -->
+<!-- ======================================================== -->
+<div id="view-audit" class="tab-content hidden space-y-5">
+    <!-- Audit Directive Banner -->
+    <div class="telemetry-panel p-5 border-l-4 border-l-amber-500 bg-surface">
+        <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+            <div class="flex items-start gap-3.5">
+                <div class="w-10 h-10 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0 mt-0.5">
+                    <i data-lucide="shield-alert" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <h3 class="text-sm font-bold text-main uppercase tracking-wider">
+                            Auditoria Operacional: Condução Sem Identificação (iButton)
+                        </h3>
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-400 border border-amber-500/40">
+                            Fiscalização de Frotas & SESMT
+                        </span>
+                    </div>
+                    <p class="text-xs text-sub mt-1 max-w-4xl leading-relaxed">
+                        Módulo analítico exclusivo para responsabilização de desvios operacionais. Ocorrências em que veículos trafegaram sem que o condutor autenticasse o chaveiro/crachá eletrônico (iButton).
+                    </p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2.5 shrink-0">
+                <button type="button" onclick="exportAuditReport()" class="btn-primary-green px-3.5 py-2 text-xs font-semibold flex items-center gap-2 cursor-pointer shadow-sm">
+                    <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i>
+                    <span>Exportar Dossiê de Auditoria (CSV)</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- KPI Cards Row -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <!-- KPI 1: Total Alertas Sem ID -->
+        <div class="telemetry-panel p-4 flex flex-col justify-between">
+            <div class="flex items-center justify-between pb-1">
+                <span class="text-[10px] uppercase font-bold text-tech-muted tracking-wider">Total de Ocorrências</span>
+                <i data-lucide="alert-triangle" class="w-4 h-4 metric-warning"></i>
+            </div>
+            <div class="mt-2">
+                <span class="text-2xl font-bold font-mono metric-warning tracking-tight" id="audit-kpi-total">0</span>
+            </div>
+            <span class="text-[11px] text-tech-muted mt-1 block">Sem iButton acoplado</span>
+        </div>
+
+        <!-- KPI 2: Frota Infratora -->
+        <div class="telemetry-panel p-4 flex flex-col justify-between border-l-2 border-amber-500">
+            <div class="flex items-center justify-between pb-1">
+                <span class="text-[10px] uppercase font-bold text-tech-muted tracking-wider">Veículos Infratores</span>
+                <i data-lucide="truck" class="w-4 h-4 metric-warning"></i>
+            </div>
+            <div class="mt-2">
+                <span class="text-2xl font-bold font-mono text-main tracking-tight" id="audit-kpi-frota">0 VEÍCULOS</span>
+            </div>
+            <span class="text-[11px] text-tech-muted mt-1 block">Placas com desvio</span>
+        </div>
+
+        <!-- KPI 3: Pico de Velocidade Sem ID -->
+        <div class="telemetry-panel p-4 flex flex-col justify-between border-l-2 border-red-500">
+            <div class="flex items-center justify-between pb-1">
+                <span class="text-[10px] uppercase font-bold text-red-400 tracking-wider">Pico de Velocidade</span>
+                <i data-lucide="gauge" class="w-4 h-4 metric-danger"></i>
+            </div>
+            <div class="mt-2">
+                <span class="text-2xl font-bold font-mono metric-danger tracking-tight" id="audit-kpi-pico">0 km/h</span>
+            </div>
+            <span class="text-[11px] text-red-300 font-semibold mt-1 block">Maior velocidade anônima</span>
+        </div>
+
+        <!-- KPI 4: Tempo Total de Condução Anônima -->
+        <div class="telemetry-panel p-4 flex flex-col justify-between">
+            <div class="flex items-center justify-between pb-1">
+                <span class="text-[10px] uppercase font-bold text-tech-muted tracking-wider">Tempo Total de Desvio</span>
+                <i data-lucide="timer" class="w-4 h-4 metric-brand"></i>
+            </div>
+            <div class="mt-2">
+                <span class="text-2xl font-bold font-mono text-main tracking-tight" id="audit-kpi-duracao">0 min</span>
+            </div>
+            <span class="text-[11px] text-tech-muted mt-1 block">Minutos em trânsito sem ID</span>
+        </div>
+    </div>
+
+    <!-- 2 Column Analytics: Ranking Placas & Turnos Críticos -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        <!-- Left: Ranking das Placas mais Reincidentes (7 cols) -->
+        <div class="lg:col-span-7 telemetry-panel p-5 space-y-3">
+            <div class="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-hairline">
+                <div>
+                    <h3 class="text-sm font-bold text-main uppercase tracking-wider flex items-center gap-2">
+                        <i data-lucide="list-ordered" class="w-4 h-4 metric-brand"></i>
+                        Top Placas com Maior Volume Sem Identificação
+                    </h3>
+                    <p class="text-xs text-tech-muted mt-0.5">
+                        Veículos que mais operaram em trânsito rodoviário sem crachá/chaveiro iButton
+                    </p>
+                </div>
+                <span class="text-[11px] font-mono px-2 py-0.5 rounded panel-subsurface text-tech-muted">REINCIDÊNCIA</span>
+            </div>
+
+            <div tabindex="0" role="region" aria-label="Ranking de Placas sem identificação" class="table-wrapper max-h-[460px]">
+                <table class="industrial-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Placa</th>
+                            <th>Categoria</th>
+                            <th>Ocorrências</th>
+                            <th>Vel. Máxima</th>
+                            <th>Rodovias Mais Frequentes</th>
+                        </tr>
+                    </thead>
+                    <tbody id="audit-placas-tbody">
+                        <!-- Populated dynamically via audit.js -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Right: Gráfico de Horários / Turnos com Evasão do Crachá (5 cols) -->
+        <div class="lg:col-span-5 telemetry-panel p-5 flex flex-col justify-between">
+            <div>
+                <div class="flex flex-wrap items-center justify-between gap-2 pb-3 mb-3 border-b border-hairline">
+                    <div>
+                        <h3 class="text-sm font-bold text-main uppercase tracking-wider flex items-center gap-2">
+                            <i data-lucide="clock-alert" class="w-4 h-4 metric-warning"></i>
+                            Horários com Maior Incidência Sem Crachá
+                        </h3>
+                        <p class="text-xs text-tech-muted mt-0.5">
+                            Identifica os turnos operacionais onde motoristas mais esquecem de bater o crachá
+                        </p>
+                    </div>
+                    <span class="text-[11px] font-mono px-2 py-0.5 rounded panel-subsurface text-tech-muted">0h ÀS 23h</span>
+                </div>
+            </div>
+
+            <div class="h-72 w-full my-auto">
+                <canvas id="chart-audit-hours"></canvas>
+            </div>
+
+            <div class="p-3 rounded-lg panel-subsurface border border-hairline text-[11px] text-tech-muted mt-3">
+                <strong class="text-main">Diretriz Operacional:</strong> Os veículos elencados acima devem ter seus tacógrafos e módulos iButton vistoriados pela equipe de manutenção elétrica para certificar o funcionamento do alarme de advertência de condução não autenticada.
+            </div>
+        </div>
+    </div>
+</div>

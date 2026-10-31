@@ -1,0 +1,217 @@
+/* ==========================================================================
+   INDUSTRIAL TELEMETRY UI COMPONENTS & UTILITIES
+   Casagrande Locações e Transportes • Unidade Operacional CSG
+   ========================================================================== */
+
+.container-app {
+    width: 100%;
+    max-width: 1680px;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1rem;
+    padding-right: 1rem;
+}
+@media (min-width: 640px) {
+    .container-app { padding-left: 1.25rem; padding-right: 1.25rem; }
+}
+@media (min-width: 1024px) {
+    .container-app { padding-left: 1.75rem; padding-right: 1.75rem; }
+}
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+.theme-header {
+    background-color: var(--bg-header);
+    border-color: var(--border-hairline);
+    backdrop-filter: blur(8px);
+}
+
+.telemetry-panel {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-hairline);
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+    transition: border-color 0.15s ease;
+}
+
+.panel-subsurface {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-hairline);
+    border-radius: 0.375rem;
+}
+
+.theme-input {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-main);
+    color: var(--text-main);
+    border-radius: 0.375rem;
+    transition: all 0.15s ease;
+}
+.theme-input:focus {
+    outline: none;
+    border-color: var(--brand-accent);
+    box-shadow: 0 0 0 1px var(--brand-accent);
+}
+
+.btn-industrial {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-hairline);
+    color: var(--text-sub);
+    border-radius: 0.375rem;
+    transition: all 0.15s ease;
+}
+.btn-industrial:hover {
+    background-color: var(--bg-hover);
+    color: var(--text-main);
+    border-color: var(--border-main);
+}
+
+.btn-primary-green {
+    background-color: var(--brand-accent);
+    color: #ffffff;
+    border: 1px solid transparent;
+    border-radius: 0.375rem;
+    font-weight: 600;
+    transition: all 0.15s ease;
+}
+.btn-primary-green:hover {
+    opacity: 0.92;
+    transform: translateY(-0.5px);
+}
+
+/* Data-First KPI Card */
+.kpi-card {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-hairline);
+    border-radius: 0.5rem;
+    padding: 0.85rem 1rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 108px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+.kpi-card:hover {
+    border-color: var(--border-main);
+    background-color: var(--bg-hover);
+}
+
+/* Pill Navigation Button */
+.tab-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.4rem 0.75rem;
+    border-radius: 0.375rem;
+    font-size: 0.725rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    border: 1px solid transparent;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+    cursor: pointer;
+}
+.tab-btn:hover {
+    color: var(--text-main);
+    background-color: var(--bg-surface);
+}
+.tab-btn.active {
+    color: var(--text-main);
+    background-color: var(--bg-surface);
+    border-color: var(--border-main);
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+}
+.tab-btn.active i {
+    color: var(--brand-accent);
+}
+
+.header-chip {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-hairline);
+    border-radius: 0.375rem;
+    padding: 0.25rem 0.55rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.7rem;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+}
+
+.risk-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.15rem 0.55rem;
+    border-radius: 0.25rem;
+    font-size: 0.685rem;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.risk-badge-high {
+    background-color: rgba(239, 68, 68, 0.14);
+    color: var(--metric-danger);
+    border: 1px solid rgba(239, 68, 68, 0.28);
+}
+.risk-badge-med {
+    background-color: rgba(245, 158, 11, 0.14);
+    color: var(--metric-warning);
+    border: 1px solid rgba(245, 158, 11, 0.28);
+}
+.risk-badge-low {
+    background-color: rgba(34, 197, 94, 0.12);
+    color: var(--brand-accent);
+    border: 1px solid rgba(34, 197, 94, 0.25);
+}
+
+.table-wrapper {
+    overflow-x: auto;
+    border-radius: 0.375rem;
+    border: 1px solid var(--border-hairline);
+}
+.industrial-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.775rem;
+    text-align: left;
+}
+.industrial-table th {
+    background-color: var(--bg-surface);
+    color: var(--text-muted);
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.65rem 0.85rem;
+    border-bottom: 1px solid var(--border-hairline);
+    white-space: nowrap;
+}
+.industrial-table td {
+    padding: 0.65rem 0.85rem;
+    border-bottom: 1px solid var(--border-hairline);
+    color: var(--text-sub);
+}
+.industrial-table tbody tr:hover {
+    background-color: var(--bg-hover);
+}
+
+@keyframes pulseSlow {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.35; transform: scale(0.92); }
+}
+.pulse-live {
+    animation: pulseSlow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+.toast-item {
+    animation: toastSlideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes toastSlideIn {
+    from { opacity: 0; transform: translateY(12px) scale(0.96); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}

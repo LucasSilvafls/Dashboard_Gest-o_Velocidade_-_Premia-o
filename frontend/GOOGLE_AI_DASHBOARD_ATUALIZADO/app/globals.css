@@ -1,0 +1,397 @@
+@import "tailwindcss";
+
+@layer base {
+  html, body {
+    margin: 0;
+    padding: 0;
+    background-color: #0c1017;
+    color: #f1f5f9;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+  * {
+    border-color: #283548;
+  }
+
+  html.light,
+  html.light body {
+    background-color: #f8fafc;
+    color: #0f172a;
+  }
+  html.light * {
+    border-color: #e2e8f0;
+  }
+}
+
+.font-tabular-data,
+.font-label-caps,
+.font-label-badge,
+.font-metric-display,
+.font-metric-md {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.font-headline-lg,
+.font-headline-xl,
+.font-headline-md,
+.font-headline-sm,
+.font-body-md,
+.font-body-sm {
+  font-family: 'Inter', sans-serif;
+}
+
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 20px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-smoothing: antialiased;
+  vertical-align: middle;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0c1017;
+}
+::-webkit-scrollbar-thumb {
+  background: #283548;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #34b344;
+}
+
+/* ══════════════════════════════════════════════════════════════ */
+/* ─── LIGHT MODE THEME ENGINE (Casagrande Industrial Clean) ──── */
+/* ══════════════════════════════════════════════════════════════ */
+
+.light,
+[data-theme="light"],
+html.light,
+html.light body {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+/* Scrollbar in Light Mode */
+.light ::-webkit-scrollbar-track,
+html.light ::-webkit-scrollbar-track {
+  background: #f8fafc;
+}
+.light ::-webkit-scrollbar-thumb,
+html.light ::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+}
+.light ::-webkit-scrollbar-thumb:hover,
+html.light ::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Main background & base app layout */
+.light main,
+.light [class*="bg-[#0c1017]"]:not(button):not(svg):not(span),
+.light [class*="bg-[#090d14]"]:not(button):not(svg):not(span) {
+  background-color: #f8fafc !important;
+}
+
+/* Primary Cards, Elevated Containers & Section Frames */
+.light [data-slot="filter-bar"],
+.light .operational-filter-bar,
+.light [class*="bg-[#16191E]"],
+.light [class*="bg-[#16191e]"],
+.light [class*="bg-[#131923]"],
+.light [class*="bg-[#181c22]"],
+.light [class*="bg-[#14171c]"],
+.light [class*="bg-[#121820]"],
+.light [class*="bg-[#101317]"],
+.light [class*="bg-[#141b24]"],
+.light [class*="bg-[#0e141c]"],
+.light [class*="bg-[#0e1217]"] {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Subpanels, Nested Rows, Table Headers, Filter Boxes & Inner Chips */
+.light [class*="bg-[#0D0F12]"],
+.light [class*="bg-[#0d0f12]"],
+.light [class*="bg-[#0b0f14]"],
+.light [class*="bg-[#161f2a]"],
+.light [class*="bg-[#1b232c]"],
+.light [class*="bg-[#1c2026]"],
+.light [class*="bg-[#1c2432]"],
+.light [class*="bg-[#1e293b]"] {
+  background-color: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+}
+
+/* Interactive Hover States */
+.light [class*="hover:bg-[#1c2432]"]:hover,
+.light [class*="hover:bg-[#181c22]"]:hover,
+.light [class*="hover:bg-[#1c2026]"]:hover,
+.light [class*="hover:bg-[#161f2a]"]:hover,
+.light [class*="hover:bg-[#1b232c]"]:hover,
+.light [class*="hover:bg-[#283548]"]:hover {
+  background-color: #e2e8f0 !important;
+}
+
+/* Borders */
+.light [class*="border-[#262B34]"],
+.light [class*="border-[#262b34]"],
+.light [class*="border-[#283548]"],
+.light [class*="border-[#262b35]"],
+.light [class*="border-[#2d333b]"],
+.light [class*="border-[#1c2432]"],
+.light [class*="border-[#0c1017]"],
+.light [class*="border-[#1b232c]"],
+.light [class*="divide-[#283548]"] > * + *,
+.light [class*="divide-[#262b35]"] > * + * {
+  border-color: #e2e8f0 !important;
+}
+
+/* Text Hierarchy */
+.light [class*="text-[#f1f5f9]"],
+.light [class*="text-[#dde3ed]"],
+.light [class*="text-slate-200"],
+.light [class*="text-slate-100"],
+.light [class*="text-white"]:not(.text-white-fixed) {
+  color: #0f172a !important;
+}
+
+.light [class*="text-[#94a3b8]"],
+.light [class*="text-[#9ba3af]"],
+.light [class*="text-slate-300"],
+.light [class*="text-slate-400"] {
+  color: #475569 !important;
+}
+
+.light [class*="text-[#64748b]"],
+.light [class*="text-slate-500"] {
+  color: #64748b !important;
+}
+
+/* Solid Buttons: preserve pure white text */
+.light button[class*="bg-[#2ca03a]"]:not([class*="/"]),
+.light button[class*="bg-[#34b344]"]:not([class*="/"]),
+.light button[class*="bg-[#ef4444]"]:not([class*="/"]),
+.light button[class*="bg-[#238430]"]:not([class*="/"]),
+.light button[class*="bg-[#2ca03a]"]:not([class*="/"]) *,
+.light button[class*="bg-[#34b344]"]:not([class*="/"]) *,
+.light button[class*="bg-[#ef4444]"]:not([class*="/"]) *,
+.light button[class*="bg-[#238430]"]:not([class*="/"]) *,
+.light .text-white-fixed {
+  color: #ffffff !important;
+}
+
+/* Explicit Table Row and Table Content styling for Light Mode */
+.light tr[class*="bg-[#ef4444]/10"] {
+  background-color: #fef2f2 !important;
+}
+.light tr[class*="bg-[#ef4444]/10"]:hover {
+  background-color: #fee2e2 !important;
+}
+.light tr[class*="bg-[#131923]"] {
+  background-color: #ffffff !important;
+}
+.light tr[class*="bg-[#131923]"]:hover {
+  background-color: #f8fafc !important;
+}
+
+/* Table text hierarchy in Light Mode: ensure driver names and table items are dark and legible */
+.light table tbody tr td span[class*="text-white"],
+.light table tbody tr td div[class*="text-white"],
+.light table tbody tr td strong[class*="text-white"],
+.light table tbody tr td [class*="text-white"]:not(button):not([class*="bg-[#2ca03a]"]):not([class*="bg-[#ef4444]"]) {
+  color: #0f172a !important;
+}
+
+.light table tbody tr td [class*="text-[#94a3b8]"] {
+  color: #475569 !important;
+}
+
+/* Soft Badges & Indicator Pills in Light Mode */
+.light [class*="bg-[#ef4444]/20"],
+.light [class*="bg-[#ef4444]/15"],
+.light [class*="bg-[#ef4444]/10"],
+.light [class*="bg-red-500/20"],
+.light [class*="bg-red-500/15"],
+.light [class*="bg-red-500/10"] {
+  background-color: #fee2e2 !important;
+  color: #dc2626 !important;
+  border-color: #fca5a5 !important;
+}
+
+.light [class*="bg-[#f59e0b]/20"],
+.light [class*="bg-[#f59e0b]/15"],
+.light [class*="bg-[#f59e0b]/10"],
+.light [class*="bg-[#f4cf00]/20"],
+.light [class*="bg-[#f4cf00]/10"],
+.light [class*="bg-amber-500/20"],
+.light [class*="bg-amber-500/15"],
+.light [class*="bg-amber-500/10"] {
+  background-color: #fef3c7 !important;
+  color: #d97706 !important;
+  border-color: #fcd34d !important;
+}
+
+.light [class*="bg-[#2ca03a]/20"],
+.light [class*="bg-[#2ca03a]/15"],
+.light [class*="bg-[#2ca03a]/10"],
+.light [class*="bg-[#34b344]/20"],
+.light [class*="bg-[#34b344]/15"],
+.light [class*="bg-[#34b344]/10"] {
+  background-color: #dcfce7 !important;
+  color: #16a34a !important;
+  border-color: #86efac !important;
+}
+
+.light [class*="bg-blue-500/15"],
+.light [class*="bg-blue-500/20"] {
+  background-color: #dbeafe !important;
+  color: #2563eb !important;
+  border-color: #93c5fd !important;
+}
+
+/* Form Inputs, Selects, and Textareas */
+.light select,
+.light input:not([type="checkbox"]):not([type="radio"]),
+.light textarea {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+
+.light select option {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+/* Fixed Top Header */
+.light header {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  border-bottom-color: #e2e8f0 !important;
+}
+
+/* Sidebar Styling in Light Mode */
+.light aside,
+.light [data-slot="sidebar"] {
+  background-color: #ffffff !important;
+  border-right-color: #e2e8f0 !important;
+}
+
+.light [data-slot="sidebar-header"],
+.light [data-slot="sidebar-footer"] {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+.light [data-slot="sidebar-item"][data-active="true"] {
+  color: #15803d !important;
+}
+
+/* Active navigation pill */
+.light [data-slot="sidebar-item"] .bg-\[\#1c2432\] {
+  background-color: #ecfdf5 !important;
+  border-left-color: #16a34a !important;
+  box-shadow: 0 1px 4px rgba(22, 163, 74, 0.12) !important;
+}
+
+/* SVG Chart Elements in Light Mode */
+.light svg text[fill="#f1f5f9"],
+.light svg text[fill="#dde3ed"] {
+  fill: #0f172a !important;
+}
+
+.light svg text[fill="#ffffff"] {
+  fill: #15803d !important;
+}
+
+.light svg text[fill="#94a3b8"],
+.light svg text[fill="#64748b"] {
+  fill: #475569 !important;
+}
+
+.light svg line[stroke="#1c2432"],
+.light svg line[stroke="#283548"],
+.light svg line[stroke="#262b35"] {
+  stroke: #e2e8f0 !important;
+}
+
+.light svg rect[fill="#1c2432"],
+.light svg rect[fill="#0c1017"] {
+  fill: #f8fafc !important;
+}
+
+/* Modals */
+.light .fixed.inset-0.z-50 {
+  background-color: rgba(15, 23, 42, 0.5) !important;
+}
+
+.light [class*="bg-[#131923]"] > div:first-child[class*="bg-[#0c1017]"],
+.light [class*="bg-[#131923]"] > div:last-child[class*="bg-[#0c1017]"] {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+/* Casagrande Brand Logo Theme Switching */
+.light [data-logo="dark"] {
+  display: none !important;
+}
+.light [data-logo="light"] {
+  display: block !important;
+}
+
+html:not(.light) [data-logo="light"],
+.dark [data-logo="light"] {
+  display: none !important;
+}
+html:not(.light) [data-logo="dark"],
+.dark [data-logo="dark"] {
+  display: block !important;
+}
+
+/* ══════════════════════════════════════════════════════════════ */
+/* ─── RESPONSIVE DESIGN ENGINE (Mobile-First Utilities) ───────── */
+/* ══════════════════════════════════════════════════════════════ */
+
+/* Hide scrollbar while preserving touch swipe capability */
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* Touch scrolling with native iOS/Android momentum physics */
+.touch-scroll-x {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+  overscroll-behavior-x: contain;
+}
+
+/* Touch targets: minimum 44px on mobile touch interactions */
+@media (pointer: coarse) {
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* Ensure no horizontal overflow ever breaks layout */
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+

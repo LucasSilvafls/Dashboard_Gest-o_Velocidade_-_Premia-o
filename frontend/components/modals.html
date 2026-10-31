@@ -1,0 +1,325 @@
+<!-- ========================================== -->
+<!-- MODAL DE DETALHE DA OCORRÊNCIA            -->
+<!-- ========================================== -->
+<div id="modal-detail" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm hidden" onclick="if(event.target === this) closeDetailModal()">
+    <div class="telemetry-panel w-full max-w-2xl overflow-hidden shadow-2xl border border-hairline animate-in fade-in zoom-in-95 duration-150">
+        <!-- Modal Header -->
+        <div class="flex items-center justify-between p-4 border-b border-hairline bg-surface">
+            <div class="flex items-center gap-3">
+                <div id="modal-severity-badge" class="w-9 h-9 rounded flex items-center justify-center risk-badge-high">
+                    <i data-lucide="alert-triangle" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <h3 class="text-sm font-bold text-main uppercase tracking-wider" id="modal-alert-id">Ocorrência #0000</h3>
+                    <p class="text-xs text-tech-muted mt-0.5" id="modal-alert-date">Dia 00/00/0000 às 00:00:00 • Unidade: CASAGRANDE</p>
+                </div>
+            </div>
+            <button type="button" onclick="closeDetailModal()" class="text-tech-muted hover:text-main p-1.5 rounded hover:bg-hover">
+                <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+        </div>
+
+        <!-- Modal Body -->
+        <div class="p-5 space-y-4 max-h-[80vh] overflow-y-auto text-xs">
+            <!-- Vehicle & Driver Card -->
+            <div class="grid grid-cols-2 gap-3 p-3.5 panel-subsurface">
+                <div>
+                    <span class="text-[10px] uppercase font-bold text-tech-muted block mb-1">Veículo (Placa / Categoria):</span>
+                    <span class="font-mono font-bold text-main text-base block" id="modal-placa">ABC-1234</span>
+                    <span class="font-mono text-tech-muted text-xs block" id="modal-prefixo">Prefixo / Tipo</span>
+                </div>
+                <div>
+                    <span class="text-[10px] uppercase font-bold text-tech-muted block mb-1">Motorista Identificado:</span>
+                    <span class="font-bold text-main text-sm block" id="modal-motorista">Nome do Motorista</span>
+                    <span class="font-mono text-tech-muted text-xs block" id="modal-cpf">CPF: ---</span>
+                </div>
+            </div>
+
+            <!-- Speeds & Limits -->
+            <div class="grid grid-cols-3 gap-3">
+                <div class="p-3 panel-subsurface">
+                    <span class="text-[10px] uppercase font-bold text-tech-muted block mb-1">Limite Permitido:</span>
+                    <span class="font-mono font-bold text-main text-base" id="modal-limite">0 km/h</span>
+                </div>
+                <div class="p-3 panel-subsurface">
+                    <span class="text-[10px] uppercase font-bold text-tech-muted block mb-1">Velocidade Atingida:</span>
+                    <span class="font-mono font-bold metric-danger text-base" id="modal-velocidade">0 km/h</span>
+                </div>
+                <div class="p-3 panel-subsurface">
+                    <span class="text-[10px] uppercase font-bold text-tech-muted block mb-1">Acima do Limite:</span>
+                    <span class="font-mono font-bold metric-warning text-base" id="modal-delta">+0 km/h</span>
+                </div>
+            </div>
+
+            <!-- Severity & Duration -->
+            <div class="grid grid-cols-2 gap-3">
+                <div class="p-3 panel-subsurface">
+                    <span class="text-[10px] uppercase font-bold text-tech-muted block mb-1">Gravidade:</span>
+                    <div id="modal-risk-pill" class="mt-1">
+                        <span class="risk-badge risk-badge-high">Crítico</span>
+                    </div>
+                </div>
+                <div class="p-3 panel-subsurface">
+                    <span class="text-[10px] uppercase font-bold text-tech-muted block mb-1">Tempo Correndo Acima:</span>
+                    <span class="font-mono font-semibold text-main text-sm block mt-1" id="modal-duracao">00:00:00 (0 segundos)</span>
+                </div>
+            </div>
+
+            <!-- Location & GPS -->
+            <div class="p-3 panel-subsurface space-y-2">
+                <div>
+                    <span class="text-[10px] uppercase font-bold text-tech-muted block mb-0.5">Localização na Rodovia:</span>
+                    <span class="text-main font-medium text-xs block" id="modal-local">Rodovia MS-000, Cidade - UF</span>
+                </div>
+                <div>
+                    <span class="text-[10px] uppercase font-bold text-tech-muted block mb-0.5">Coordenadas GPS (WGS84):</span>
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="font-mono text-tech-muted text-xs" id="modal-coords">-00.000000, -00.000000</span>
+                        <a id="modal-maps-link" href="#" target="_blank" rel="noopener noreferrer" class="text-xs font-semibold metric-brand hover:underline flex items-center gap-1 hidden">
+                            <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+                            <span>Abrir no Google Maps</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="p-3 bg-surface border-t border-hairline flex justify-end">
+            <button type="button" onclick="closeDetailModal()" class="btn-industrial px-4 py-1.5 text-xs font-semibold cursor-pointer">
+                Fechar
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!-- MODAL DE UPLOAD OFFLINE / ARRASTAR ARQUIVO -->
+<!-- ========================================== -->
+<div id="modal-upload" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm hidden" onclick="if(event.target === this) closeUploadModal()">
+    <div class="telemetry-panel w-full max-w-lg overflow-hidden shadow-2xl border border-hairline">
+        <div class="flex items-center justify-between p-4 border-b border-hairline bg-surface">
+            <div class="flex items-center gap-2">
+                <i data-lucide="upload" class="w-4 h-4 metric-brand"></i>
+                <h3 class="text-sm font-bold text-main uppercase tracking-wider" id="modal-upload-title">Carregar Planilha de Telemetria</h3>
+            </div>
+            <button type="button" onclick="closeUploadModal()" class="text-tech-muted hover:text-main p-1.5 rounded hover:bg-hover">
+                <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+        </div>
+        <div class="p-5 space-y-4 text-xs">
+            <p class="text-sub">
+                Arraste ou escolha qualquer arquivo de telemetria da frota Casagrande (<strong>CSV, XLSX, XLS, ODS, JSON</strong>). O sistema processa localmente a coluna de categoria do veículo e filtra os excessos de velocidade.
+            </p>
+
+            <div id="drop-zone" class="border-2 border-dashed border-main rounded-lg p-6 text-center cursor-pointer hover:border-brand-accent transition-all bg-surface">
+                <input type="file" id="file-input" accept=".csv,.xlsx,.xls,.xlsm,.xlsb,.ods,.json,.jsonl,.ndjson,.tsv,.txt" class="hidden" onchange="handleFileSelect(event)">
+                <i data-lucide="file-spreadsheet" class="w-8 h-8 metric-brand mx-auto mb-2"></i>
+                <p class="text-xs text-main font-semibold">Clique para escolher o arquivo ou arraste para cá</p>
+                <p class="text-[11px] text-tech-muted mt-1">Compatível com Alertas Consolidados CSG, Sascar, Autotrac e relatórios de rastreadores</p>
+            </div>
+
+            <div id="upload-status" class="hidden p-3 rounded panel-subsurface font-mono text-[11px] text-sub">
+                <span id="upload-status-msg">Processando dados...</span>
+            </div>
+        </div>
+        <div class="p-3 bg-surface border-t border-hairline flex justify-end">
+            <button type="button" onclick="closeUploadModal()" class="btn-industrial px-4 py-1.5 text-xs font-semibold cursor-pointer">
+                Cancelar
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!-- MODAL DE LOGIN / AUTENTICAÇÃO RBAC        -->
+<!-- ========================================== -->
+<div id="modal-login" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md hidden" onclick="if(event.target === this) closeLoginModal()">
+    <div class="telemetry-panel w-full max-w-md overflow-hidden shadow-2xl border border-hairline animate-in fade-in zoom-in-95 duration-200">
+        <!-- Modal Header -->
+        <div class="p-5 border-b border-hairline bg-surface flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-csg-500/10 border border-csg-500/30 flex items-center justify-center text-csg-400 shrink-0">
+                    <i data-lucide="lock" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <h3 class="text-sm font-bold text-main uppercase tracking-wider">Autenticação do Sistema</h3>
+                    <p class="text-xs text-tech-muted mt-0.5">Casagrande Locações • Telemetria CSG</p>
+                </div>
+            </div>
+            <button type="button" onclick="closeLoginModal()" class="text-tech-muted hover:text-main p-1.5 rounded hover:bg-hover">
+                <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+        </div>
+
+        <!-- Modal Form -->
+        <form id="login-form" onsubmit="handleLoginSubmit(event)" class="p-5 space-y-4 text-xs">
+            <!-- Error Banner -->
+            <div id="login-error-banner" class="hidden p-3 rounded-lg bg-red-500/15 border border-red-500/30 text-red-400 flex items-start gap-2.5">
+                <i data-lucide="alert-circle" class="w-4 h-4 shrink-0 mt-0.5"></i>
+                <span id="login-error-msg" class="text-xs">Usuário ou senha incorretos.</span>
+            </div>
+
+            <!-- Username -->
+            <div>
+                <label for="login-username" class="block text-[10px] font-bold text-tech-muted uppercase tracking-wider mb-1.5">
+                    Usuário ou Matrícula:
+                </label>
+                <div class="relative">
+                    <i data-lucide="user" class="w-4 h-4 text-tech-muted absolute left-3 top-2.5"></i>
+                    <input type="text" id="login-username" required autocomplete="username" placeholder="Digite seu usuário (ex: admin ou viewer)" class="theme-input w-full pl-9 pr-3 py-2 text-xs font-mono">
+                </div>
+            </div>
+
+            <!-- Password -->
+            <div>
+                <div class="flex items-center justify-between mb-1.5">
+                    <label for="login-password" class="block text-[10px] font-bold text-tech-muted uppercase tracking-wider">
+                        Senha de Acesso:
+                    </label>
+                    <button type="button" onclick="togglePasswordVisibility()" class="text-[10px] text-tech-muted hover:text-main flex items-center gap-1 cursor-pointer">
+                        <span id="toggle-pwd-text">Mostrar</span>
+                    </button>
+                </div>
+                <div class="relative">
+                    <i data-lucide="key" class="w-4 h-4 text-tech-muted absolute left-3 top-2.5"></i>
+                    <input type="password" id="login-password" required autocomplete="current-password" placeholder="••••••••" class="theme-input w-full pl-9 pr-3 py-2 text-xs font-mono">
+                </div>
+            </div>
+
+            <!-- Remember Me -->
+            <div class="flex items-center justify-between pt-1">
+                <label class="flex items-center gap-2 cursor-pointer text-sub">
+                    <input type="checkbox" id="login-remember" checked class="rounded border-main text-csg-500 focus:ring-csg-500">
+                    <span>Lembrar credenciais neste computador</span>
+                </label>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit" id="login-submit-btn" class="btn-primary-green w-full py-2.5 px-4 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 shadow-md hover:shadow-lg cursor-pointer">
+                <i data-lucide="log-in" class="w-4 h-4" id="login-btn-icon"></i>
+                <span id="login-btn-text">Entrar no Sistema</span>
+            </button>
+
+            <!-- Quick Test Credentials / Presets (For Evaluators) -->
+            <div class="pt-3 border-t border-hairline space-y-2">
+                <span class="block text-[10px] font-bold text-tech-muted uppercase tracking-wider">
+                    Atalhos de Avaliação Rápida (Clique para preencher e testar perfis):
+                </span>
+                <div class="grid grid-cols-2 gap-2">
+                    <button type="button" onclick="quickFillAndLogin('admin', 'admin123')" class="p-2 rounded bg-surface border border-hairline hover:border-csg-500 text-left transition-all cursor-pointer">
+                        <div class="flex items-center justify-between">
+                            <span class="font-bold text-main text-[11px]">Administrador</span>
+                            <span class="text-[9px] font-mono font-bold text-emerald-400 bg-emerald-500/20 px-1 py-0.2 rounded">ADMIN</span>
+                        </div>
+                        <span class="text-[10px] font-mono text-tech-muted block mt-0.5">admin / admin123</span>
+                        <span class="text-[9px] text-csg-400 block mt-0.5">Acesso total + Upload</span>
+                    </button>
+                    <button type="button" onclick="quickFillAndLogin('viewer', 'viewer123')" class="p-2 rounded bg-surface border border-hairline hover:border-blue-500 text-left transition-all cursor-pointer">
+                        <div class="flex items-center justify-between">
+                            <span class="font-bold text-main text-[11px]">Visualizador</span>
+                            <span class="text-[9px] font-mono font-bold text-blue-400 bg-blue-500/20 px-1 py-0.2 rounded">VIEWER</span>
+                        </div>
+                        <span class="text-[10px] font-mono text-tech-muted block mt-0.5">viewer / viewer123</span>
+                        <span class="text-[9px] text-blue-400 block mt-0.5">Dashboard limpo (Sem upload)</span>
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Toast Feedback Container -->
+<div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+<!-- PREMIAÇÃO AUDIT DOSSIER MODAL -->
+<div id="modal-premiacao-audit" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm hidden" onclick="if(event.target === this) closePremiacaoAuditModal()">
+    <div class="telemetry-panel w-full max-w-3xl overflow-hidden shadow-2xl border border-hairline animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[90vh]">
+        <!-- Modal Header -->
+        <div class="flex items-center justify-between p-4 border-b border-hairline bg-surface shrink-0">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-lg bg-csg-500/10 border border-csg-500/30 flex items-center justify-center text-csg-400">
+                    <i data-lucide="file-check-2" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <h3 class="text-sm font-bold text-main uppercase tracking-wider" id="audit-modal-name">Dossiê de Premiação do Motorista</h3>
+                    <p class="text-xs text-tech-muted mt-0.5" id="audit-modal-cpf">CPF: 000.000.000-00 • Casagrande Transportes</p>
+                </div>
+            </div>
+            <button type="button" onclick="closePremiacaoAuditModal()" class="text-tech-muted hover:text-main p-1.5 rounded hover:bg-hover">
+                <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+        </div>
+
+        <!-- Modal Scrollable Content -->
+        <div class="p-5 space-y-4 overflow-y-auto text-xs flex-1">
+            <!-- Verdict Banner -->
+            <div id="audit-modal-verdict" class="p-3.5 rounded-lg bg-csg-950/50 border border-csg-500/60 flex items-center justify-between gap-3">
+                <span id="audit-modal-status" class="px-3 py-1 rounded text-xs font-mono font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                    STATUS PREMIAÇÃO
+                </span>
+            </div>
+
+            <!-- Stats Grid -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3.5 panel-subsurface rounded border border-hairline">
+                <div>
+                    <span class="text-[10px] uppercase font-bold text-tech-muted block mb-0.5">Velocidade Máxima:</span>
+                    <div id="audit-modal-max-speed" class="font-mono text-base font-bold metric-danger">0 km/h</div>
+                </div>
+                <div>
+                    <span class="text-[10px] uppercase font-bold text-tech-muted block mb-0.5">Teto Permitido:</span>
+                    <div id="audit-modal-threshold" class="font-mono text-base font-bold text-main">80 km/h</div>
+                </div>
+                <div>
+                    <span class="text-[10px] uppercase font-bold text-tech-muted block mb-0.5">Caminhões Conduzidos:</span>
+                    <div id="audit-modal-vehicles" class="font-mono font-bold text-xs text-main truncate">-</div>
+                </div>
+                <div>
+                    <span class="text-[10px] uppercase font-bold text-tech-muted block mb-0.5">Unidade Lotação:</span>
+                    <div class="font-mono font-bold text-xs text-main truncate">CSG FLORESTAL</div>
+                </div>
+            </div>
+
+            <!-- Chronological Alerts Table -->
+            <div class="space-y-2">
+                <div class="flex items-center justify-between">
+                    <span class="text-[11px] font-bold uppercase tracking-wider text-main flex items-center gap-1.5">
+                        <i data-lucide="history" class="w-3.5 h-3.5 metric-brand"></i>
+                        Histórico Completo de Alertas do Condutor
+                    </span>
+                    <span class="text-[10px] font-mono text-tech-muted">Ordenado da maior para a menor velocidade</span>
+                </div>
+
+                <div class="table-wrapper max-h-[300px] border border-hairline rounded">
+                    <table class="industrial-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Data e Hora</th>
+                                <th>Caminhão / Placa</th>
+                                <th>Categoria</th>
+                                <th class="text-right">Velocidade</th>
+                                <th class="text-right">Teto</th>
+                                <th>Local / Rodovia</th>
+                            </tr>
+                        </thead>
+                        <tbody id="audit-modal-events-tbody">
+                            <!-- Populated dynamically via premiacao.js -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="p-3.5 bg-surface border-t border-hairline flex items-center justify-between shrink-0">
+            <button type="button" onclick="printAuditModal()" class="btn-industrial px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5 cursor-pointer">
+                <i data-lucide="printer" class="w-3.5 h-3.5"></i>
+                <span>Imprimir Dossiê</span>
+            </button>
+            <button type="button" onclick="closePremiacaoAuditModal()" class="btn-primary-green px-4 py-1.5 text-xs font-semibold cursor-pointer">
+                Fechar Dossiê
+            </button>
+        </div>
+    </div>
+</div>

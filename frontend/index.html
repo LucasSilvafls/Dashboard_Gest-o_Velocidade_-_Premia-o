@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
+    <script>
+        try {
+            const savedScheme = localStorage.getItem("color-scheme");
+            const systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+            const effectiveScheme = (savedScheme === "light" || savedScheme === "dark") ? savedScheme : (systemDark ? "dark" : "dark");
+            document.querySelector('meta[name="color-scheme"]').content = savedScheme ?? "light dark";
+            document.documentElement.classList.remove("dark", "light");
+            document.documentElement.classList.add(effectiveScheme);
+        } catch (e) {}
+    </script>
+    <title>Painel de Controle de Velocidade da Frota | Casagrande Locações e Transportes</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+                    },
+                    colors: {
+                        csg: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            200: '#bbf7d0',
+                            300: '#86efac',
+                            400: '#4ade80',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                            800: '#166534',
+                            900: '#14532d',
+                            950: '#052e16',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <!-- PapaParse (CSV / TSV) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <!-- SheetJS (Excel XLSX) -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        /* {{CSS_BUNDLE}} */
+    </style>
+</head>
+<body class="min-h-screen antialiased transition-colors duration-150">
+
+    <!-- TOP HEADER -->
+    <header class="theme-header border-b sticky top-0 z-40">
+        <div class="container-app h-14 flex items-center justify-between gap-2 sm:gap-3">
+            <!-- Left Branding: Casagrande Logo & Enterprise Subtitle -->
+            <div class="flex items-center gap-3 shrink-0">
+                <img src="__LOGO_DARK_B64__" alt="Casagrande Locações e Transportes" class="logo-dark h-8 sm:h-9 w-auto object-contain" />
+                <img src="__LOGO_LIGHT_B64__" alt="Casagrande Locações e Transportes" class="logo-light h-8 sm:h-9 w-auto object-contain" />
+                <div class="hidden sm:flex flex-col border-l border-hairline pl-3">
+                    <span class="text-[11px] font-bold text-main uppercase tracking-wider leading-none">Casagrande Locações & Transportes</span>
+                    <span class="text-[9px] text-tech-muted font-mono leading-tight mt-0.5">Unidade CSG • Operação Florestal • Telemetria CCO</span>
+                </div>
+            </div>
+
+            <!-- Center Telemetry Readout Chips -->
+            <div class="hidden md:flex items-center justify-center gap-2 lg:gap-2.5 flex-wrap xl:flex-nowrap">
+                <div class="header-chip" title="Datas cobertas pelos registros carregados">
+                    <i data-lucide="calendar" class="w-3.5 h-3.5 metric-brand shrink-0"></i>
+                    <span class="text-tech-muted uppercase text-[10px] font-bold tracking-wider hidden lg:inline">Período:</span>
+                    <span class="font-mono font-semibold text-main text-xs" id="badge-period">26/09 a 25/10/2026</span>
+                </div>
+                <div class="header-chip" title="Total de veículos com ocorrências de velocidade">
+                    <i data-lucide="truck" class="w-3.5 h-3.5 metric-brand shrink-0"></i>
+                    <span class="text-tech-muted uppercase text-[10px] font-bold tracking-wider hidden lg:inline">Frota:</span>
+                    <span class="font-mono font-semibold text-main text-xs" id="badge-vehicles-count">35 veículos</span>
+                </div>
+                <div class="header-chip" title="Quantidade de excessos de velocidade em relação ao total de alertas da frota">
+                    <i data-lucide="activity" class="w-3.5 h-3.5 metric-warning shrink-0"></i>
+                    <span class="text-tech-muted uppercase text-[10px] font-bold tracking-wider hidden xl:inline">Excessos:</span>
+                    <span class="font-mono font-semibold metric-warning text-xs" id="badge-total-file-alerts">9.051 de 16.067 (56,3%)</span>
+                </div>
+            </div>
+
+            <!-- Right Operational Controls: API Status, Auth & Tools -->
+            <div class="flex items-center gap-2 shrink-0">
+                <!-- API Connection Status Chip -->
+                <div id="api-status-chip" class="header-chip" title="Status de conexão com a API RESTful CSG">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 pulse-live shrink-0" id="api-status-dot"></span>
+                    <span class="font-mono text-[11px] text-main font-semibold hidden sm:inline" id="api-status-text">API Conectada</span>
+                    <button type="button" onclick="fetchDashboardData(true)" title="Sincronizar dados em tempo real da API" class="text-tech-muted hover:text-main p-0.5 rounded hover:bg-hover ml-0.5 cursor-pointer">
+                        <i data-lucide="refresh-cw" class="w-3 h-3"></i>
+                    </button>
+                </div>
+
+                <!-- User Profile & RBAC Widget -->
+                <div id="user-auth-container" class="flex items-center">
+                    <!-- State 1: Authenticated -->
+                    <div id="user-authenticated-box" class="header-chip hidden items-center gap-2">
+                        <div class="flex items-center gap-1.5">
+                            <i data-lucide="user-check" class="w-3.5 h-3.5 text-csg-400"></i>
+                            <span class="font-mono text-[11px] text-main font-bold max-w-[100px] truncate" id="user-name-display">Admin</span>
+                            <span id="user-role-badge" class="font-mono text-[9px] font-bold px-1.5 py-0.2 rounded uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">ADMIN</span>
+                        </div>
+                        <button type="button" onclick="logoutUser()" title="Encerrar sessão" class="text-tech-muted hover:text-red-400 p-0.5 rounded hover:bg-hover ml-1 cursor-pointer">
+                            <i data-lucide="log-out" class="w-3 h-3"></i>
+                        </button>
+                    </div>
+
+                    <!-- State 2: Unauthenticated -->
+                    <div id="user-unauthenticated-box" class="flex items-center">
+                        <button type="button" onclick="openLoginModal()" class="btn-industrial px-2.5 py-1 text-xs font-semibold flex items-center gap-1.5 cursor-pointer">
+                            <i data-lucide="log-in" class="w-3.5 h-3.5 text-tech-muted"></i>
+                            <span class="hidden sm:inline">Entrar</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Theme Toggle Button -->
+                <button type="button" onclick="toggleTheme()" class="btn-industrial px-2.5 py-1 text-xs font-semibold flex items-center gap-1.5 cursor-pointer" title="Alternar entre Tema Claro e Escuro">
+                    <i data-lucide="sun" id="theme-icon-light" class="w-3.5 h-3.5 hidden"></i>
+                    <i data-lucide="moon" id="theme-icon-dark" class="w-3.5 h-3.5"></i>
+                    <span id="theme-label" class="hidden sm:inline">Tema</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN APP CONTAINER -->
+    <main class="container-app py-5 space-y-5">
+        <!-- NAVIGATION BAR (TABS) -->
+        <nav aria-label="Navegação do Dashboard" class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 border-b border-hairline">
+            <button type="button" id="tab-overview" onclick="switchTab('overview')" class="tab-btn active">
+                <i data-lucide="gauge" class="w-3.5 h-3.5"></i>
+                <span>1. Resumo Geral & Horários</span>
+            </button>
+            <button type="button" id="tab-safety" onclick="switchTab('safety')" class="tab-btn">
+                <i data-lucide="shield-alert" class="w-3.5 h-3.5"></i>
+                <span>2. Ocorrências Graves & Rodovias</span>
+            </button>
+            <button type="button" id="tab-fleet" onclick="switchTab('fleet')" class="tab-btn">
+                <i data-lucide="truck" class="w-3.5 h-3.5"></i>
+                <span>3. Rankings Frota & Motoristas</span>
+            </button>
+            <button type="button" id="tab-table-view" onclick="switchTab('table-view')" class="tab-btn">
+                <i data-lucide="table" class="w-3.5 h-3.5"></i>
+                <span>4. Lista Completa de Ocorrências</span>
+            </button>
+            <button type="button" id="tab-premiacao" onclick="switchTab('premiacao')" class="tab-btn">
+                <i data-lucide="award" class="w-3.5 h-3.5"></i>
+                <span>5. Premiação Motorista x Caminhão</span>
+            </button>
+            <button type="button" id="tab-audit" onclick="switchTab('audit')" class="tab-btn">
+                <i data-lucide="shield-alert" class="w-3.5 h-3.5"></i>
+                <span>6. Auditoria sem Identificação</span>
+            </button>
+            <button type="button" id="tab-admin" onclick="switchTab('admin')" class="tab-btn admin-only hidden" title="Painel Administrativo e Upload">
+                <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
+                <span>7. Painel Admin & Upload</span>
+                <span class="sr-only">6. Painel Admin & Upload</span>
+            </button>
+        </nav>
+
+        <!-- GLOBAL ANALYTICS TOOLBAR & CASCADING FILTERS -->
+        <div id="global-analytics-toolbar" class="space-y-4">
+            <!-- Filter Controls Panel -->
+            <div class="telemetry-panel p-4 space-y-3">
+                <div class="flex items-center justify-between pb-2 border-b border-hairline">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="sliders-horizontal" class="w-4 h-4 metric-brand"></i>
+                        <span class="text-xs font-bold uppercase tracking-wider text-main">Filtros Operacionais em Cascata</span>
+                        <span id="filter-counter" class="text-[10px] font-mono px-2 py-0.5 rounded panel-subsurface text-tech-muted ml-2">
+                            EXIBINDO TODAS AS OCORRÊNCIAS
+                        </span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="resetFilters()" class="btn-industrial px-2.5 py-1 text-xs font-semibold flex items-center gap-1 cursor-pointer" title="Limpar todos os filtros">
+                            <i data-lucide="rotate-ccw" class="w-3 h-3"></i>
+                            <span>Limpar Filtros</span>
+                        </button>
+                        <button type="button" onclick="toggleFilterCollapse()" class="btn-industrial px-2 py-1 text-xs font-semibold flex items-center gap-1 cursor-pointer">
+                            <span id="label-toggle-filters">Recolher</span>
+                            <i data-lucide="chevron-up" id="icon-toggle-filters" class="w-3.5 h-3.5"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Filters Grid -->
+                <div id="filter-controls-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 pt-1">
+                    <!-- Filter 1: Period -->
+                    <div>
+                        <label for="filter-period" class="block text-[10px] font-bold text-tech-muted uppercase tracking-wider mb-1">
+                            1. Período / Dia:
+                        </label>
+                        <select id="filter-period" onchange="onPeriodFilterChange()" class="theme-input w-full px-2 py-1.5 text-xs font-mono">
+                            <option value="ALL">Todos os dias</option>
+                            <option value="LAST_7">Últimos 7 dias</option>
+                            <option value="LAST_15">Últimos 15 dias</option>
+                            <option value="FIRST_15">Primeiros 15 dias</option>
+                        </select>
+                    </div>
+
+                    <!-- Filter 2: Specific Day -->
+                    <div>
+                        <label for="filter-date" class="block text-[10px] font-bold text-tech-muted uppercase tracking-wider mb-1">
+                            2. Dia Específico:
+                        </label>
+                        <select id="filter-date" onchange="applyFilters()" class="theme-input w-full px-2 py-1.5 text-xs font-mono">
+                            <option value="ALL">Todos os dias</option>
+                        </select>
+                    </div>
+
+                    <!-- Filter 3: Category -->
+                    <div>
+                        <label for="filter-category" class="block text-[10px] font-bold text-tech-muted uppercase tracking-wider mb-1">
+                            3. Categoria Veículo:
+                        </label>
+                        <select id="filter-category" onchange="onCategoryFilterChange()" class="theme-input w-full px-2 py-1.5 text-xs font-semibold">
+                            <option value="ALL">Todas as categorias</option>
+                        </select>
+                    </div>
+
+                    <!-- Filter 4: Excess Type -->
+                    <div>
+                        <label for="filter-type" class="block text-[10px] font-bold text-tech-muted uppercase tracking-wider mb-1">
+                            4. Tipo de Excesso Veloc.:
+                        </label>
+                        <select id="filter-type" onchange="applyFilters()" class="theme-input w-full px-2 py-1.5 text-xs">
+                            <option value="ALL">Todos os tipos</option>
+                        </select>
+                    </div>
+
+                    <!-- Filter 5: Plate -->
+                    <div>
+                        <label for="filter-vehicle" class="block text-[10px] font-bold text-tech-muted uppercase tracking-wider mb-1">
+                            5. Placa do Veículo:
+                        </label>
+                        <select id="filter-vehicle" onchange="applyFilters()" class="theme-input w-full px-2 py-1.5 text-xs font-mono font-semibold">
+                            <option value="ALL">Todas as placas</option>
+                        </select>
+                    </div>
+
+                    <!-- Filter 6: Driver Identification -->
+                    <div>
+                        <label for="filter-driver-status" class="block text-[10px] font-bold text-tech-muted uppercase tracking-wider mb-1">
+                            6. Identificação Condutor:
+                        </label>
+                        <select id="filter-driver-status" onchange="applyFilters()" class="theme-input w-full px-2 py-1.5 text-xs">
+                            <option value="ALL">Todos (Com e sem identificação)</option>
+                            <option value="IDENTIFIED">Condutor Identificado</option>
+                            <option value="UNIDENTIFIED">Sem identificação</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- KPI SUMMARY CARDS -->
+            <section id="kpi-summary-section" aria-label="Indicadores Chave de Desempenho" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5">
+                <!-- KPI 1: Total Excessos -->
+                <article class="kpi-card">
+                    <div>
+                        <div class="flex items-center justify-between gap-1 mb-1.5">
+                            <span class="text-[10px] font-bold uppercase tracking-wider text-tech-muted">Total de Excessos</span>
+                            <i data-lucide="zap" class="w-3.5 h-3.5 metric-brand"></i>
+                        </div>
+                        <div class="flex items-baseline gap-1.5">
+                            <span class="text-2xl font-bold font-mono text-main tracking-tight" id="kpi-total">9.051</span>
+                        </div>
+                    </div>
+                    <div class="border-t border-hairline pt-2 mt-2 flex items-center justify-between text-[11px]">
+                        <span class="text-tech-muted">Alertas da frota:</span>
+                        <span class="font-mono text-csg-400 font-bold" id="kpi-total-share">56,3%</span>
+                    </div>
+                </article>
+
+                <!-- KPI 2: Velocidade Máxima -->
+                <article class="kpi-card">
+                    <div>
+                        <div class="flex items-center justify-between gap-1 mb-1.5">
+                            <span class="text-[10px] font-bold uppercase tracking-wider text-tech-muted">Maior Velocidade</span>
+                            <i data-lucide="gauge" class="w-3.5 h-3.5 metric-danger"></i>
+                        </div>
+                        <div class="flex items-baseline gap-1.5" id="kpi-max-speed">
+                            <span class="text-2xl font-bold font-mono metric-danger tracking-tight">158</span>
+                            <span class="text-xs font-mono font-semibold text-tech-muted">km/h</span>
+                        </div>
+                    </div>
+                    <div class="border-t border-hairline pt-2 mt-2 flex items-center justify-between text-[11px] truncate" id="kpi-max-speed-desc" title="Veículo RWG3A16 na MS-436">
+                        <span class="font-mono font-bold text-main">RWG3A16</span>
+                        <span class="text-tech-muted truncate ml-1.5">na MS-436</span>
+                    </div>
+                </article>
+
+                <!-- KPI 3: Média Delta -->
+                <article class="kpi-card">
+                    <div>
+                        <div class="flex items-center justify-between gap-1 mb-1.5">
+                            <span class="text-[10px] font-bold uppercase tracking-wider text-tech-muted">Média Acima</span>
+                            <i data-lucide="trending-up" class="w-3.5 h-3.5 metric-warning"></i>
+                        </div>
+                        <div class="flex items-baseline gap-1.5" id="kpi-avg-delta">
+                            <span class="text-2xl font-bold font-mono metric-warning tracking-tight">+14,5</span>
+                            <span class="text-xs font-mono font-semibold text-tech-muted">km/h</span>
+                        </div>
+                    </div>
+                    <div class="border-t border-hairline pt-2 mt-2 flex items-center justify-between text-[11px]">
+                        <span class="text-tech-muted">Em média:</span>
+                        <span class="font-mono text-sub">Acima do limite</span>
+                    </div>
+                </article>
+
+                <!-- KPI 4: Risco Alto / Crítico -->
+                <article class="kpi-card">
+                    <div>
+                        <div class="flex items-center justify-between gap-1 mb-1.5">
+                            <span class="text-[10px] font-bold uppercase tracking-wider text-tech-muted">Ocorrências Graves</span>
+                            <i data-lucide="shield-alert" class="w-3.5 h-3.5 metric-danger"></i>
+                        </div>
+                        <div class="flex items-baseline gap-2" id="kpi-high-risk">
+                            <span class="text-2xl font-bold font-mono metric-danger tracking-tight">1.765</span>
+                            <span class="text-xs font-mono font-semibold text-tech-muted" id="kpi-high-risk-pct">(19,5%)</span>
+                        </div>
+                    </div>
+                    <div class="border-t border-hairline pt-2 mt-2 flex items-center justify-between text-[11px]">
+                        <span class="text-tech-muted">Nível de atenção:</span>
+                        <span class="risk-badge risk-badge-high">Crítico</span>
+                    </div>
+                </article>
+
+                <!-- KPI 5: Tempo Total Correndo -->
+                <article class="kpi-card">
+                    <div>
+                        <div class="flex items-center justify-between gap-1 mb-1.5">
+                            <span class="text-[10px] font-bold uppercase tracking-wider text-tech-muted">Tempo em Excesso</span>
+                            <i data-lucide="timer" class="w-3.5 h-3.5 text-tech-muted"></i>
+                        </div>
+                        <div class="flex items-baseline gap-1.5">
+                            <span class="text-2xl font-bold font-mono text-main tracking-tight" id="kpi-total-duration">126h 40m</span>
+                        </div>
+                    </div>
+                    <div class="border-t border-hairline pt-2 mt-2 flex items-center justify-between text-[11px]">
+                        <span class="text-tech-muted">&gt; 10 min contínuos:</span>
+                        <span class="font-mono font-semibold text-sub" id="kpi-long-duration">185 vezes</span>
+                    </div>
+                </article>
+
+                <!-- KPI 6: Não Identificados -->
+                <article class="kpi-card">
+                    <div>
+                        <div class="flex items-center justify-between gap-1 mb-1.5">
+                            <span class="text-[10px] font-bold uppercase tracking-wider text-tech-muted">Sem Motorista ID</span>
+                            <i data-lucide="user-x" class="w-3.5 h-3.5 metric-warning"></i>
+                        </div>
+                        <div class="flex items-baseline gap-2" id="kpi-unidentified">
+                            <span class="text-2xl font-bold font-mono metric-warning tracking-tight">3.992</span>
+                            <span class="text-xs font-mono font-semibold text-tech-muted">(44,1%)</span>
+                        </div>
+                    </div>
+                    <div class="border-t border-hairline pt-2 mt-2 flex items-center justify-between text-[11px]">
+                        <span class="text-tech-muted">Crachá / Chaveiro:</span>
+                        <span class="font-mono font-semibold metric-warning uppercase text-[10px]">Não passado</span>
+                    </div>
+                </article>
+            </section>
+        </div>
+
+        <!-- SLOTS DAS ABAS TEMÁTICAS -->
+        <!-- {{TAB_OVERVIEW}} -->
+        <!-- {{TAB_CRITICAL}} -->
+        <!-- {{TAB_RANKINGS}} -->
+        <!-- {{TAB_OCCURRENCES}} -->
+        <!-- {{TAB_PREMIACAO}} -->
+        <!-- {{TAB_AUDIT}} -->
+        <!-- {{TAB_ADMIN}} -->
+
+    </main>
+
+    <!-- SLOTS DOS MODAIS E FEEDBACKS -->
+    <!-- {{MODALS}} -->
+
+    <!-- JAVASCRIPT BUNDLE -->
+    <script>
+        const INITIAL_DATA = __INITIAL_DATA_JSON__;
+
+        /* {{JS_BUNDLE}} */
+    </script>
+</body>
+</html>
