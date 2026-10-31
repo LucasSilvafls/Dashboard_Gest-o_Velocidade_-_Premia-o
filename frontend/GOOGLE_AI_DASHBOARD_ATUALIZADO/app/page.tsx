@@ -611,6 +611,7 @@ export default function Home() {
             setCurrentUser(updated);
             try {
               localStorage.setItem('csg_session_user_v1', JSON.stringify(updated));
+              localStorage.setItem(`csg_pw_changed_${currentUser.username}`, 'true');
             } catch {}
           }
           showToast('Senha de acesso pessoal gravada com sucesso!');

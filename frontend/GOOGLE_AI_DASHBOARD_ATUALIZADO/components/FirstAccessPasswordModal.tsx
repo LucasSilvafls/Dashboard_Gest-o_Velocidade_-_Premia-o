@@ -79,10 +79,23 @@ export default function FirstAccessPasswordModal({
           .eq('username', user.username);
       }
 
+      // 3. Gravar travas locais para o navegador nunca mais aceitar a senha inicial
+      if (typeof window !== 'undefined' && user?.username) {
+        try {
+          localStorage.setItem(`csg_pw_changed_${user.username}`, 'true');
+          localStorage.setItem(`csg_custom_pass_${user.username}`, newPassword);
+        } catch {}
+      }
+
       onPasswordChanged();
     } catch (err: any) {
       console.warn('Erro ao atualizar senha no Supabase:', err);
-      // Mesmo com fallback local, prossegue marcando como concluído
+      if (typeof window !== 'undefined' && user?.username) {
+        try {
+          localStorage.setItem(`csg_pw_changed_${user.username}`, 'true');
+          localStorage.setItem(`csg_custom_pass_${user.username}`, newPassword);
+        } catch {}
+      }
       onPasswordChanged();
     } finally {
       setIsSubmitting(false);

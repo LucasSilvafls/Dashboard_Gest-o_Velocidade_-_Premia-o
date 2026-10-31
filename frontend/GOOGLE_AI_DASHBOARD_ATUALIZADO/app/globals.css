@@ -344,19 +344,33 @@ html.light ::-webkit-scrollbar-thumb:hover {
 }
 
 /* Casagrande Brand Logo Theme Switching */
-.light [data-logo="dark"] {
+html.light [data-logo="dark"],
+body.light [data-logo="dark"],
+.light [data-logo="dark"],
+[data-theme="light"] [data-logo="dark"] {
   display: none !important;
 }
-.light [data-logo="light"] {
+
+html.light [data-logo="light"],
+body.light [data-logo="light"],
+.light [data-logo="light"],
+[data-theme="light"] [data-logo="light"] {
   display: block !important;
 }
 
-html:not(.light) [data-logo="light"],
-.dark [data-logo="light"] {
+html.dark [data-logo="light"],
+body.dark [data-logo="light"],
+.dark [data-logo="light"],
+[data-theme="dark"] [data-logo="light"],
+html:not(.light) [data-logo="light"] {
   display: none !important;
 }
-html:not(.light) [data-logo="dark"],
-.dark [data-logo="dark"] {
+
+html.dark [data-logo="dark"],
+body.dark [data-logo="dark"],
+.dark [data-logo="dark"],
+[data-theme="dark"] [data-logo="dark"],
+html:not(.light) [data-logo="dark"] {
   display: block !important;
 }
 

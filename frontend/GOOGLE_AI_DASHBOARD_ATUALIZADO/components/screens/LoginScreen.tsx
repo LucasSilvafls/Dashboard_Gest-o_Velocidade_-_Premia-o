@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { useTheme } from '@/lib/ThemeContext';
 import { supabase } from '@/lib/supabaseClient';
@@ -25,13 +25,19 @@ interface LoginScreenProps {
 
 export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   const { theme, toggleTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
 
-  const [username, setUsername] = useState('admincasagrande');
-  const [password, setPassword] = useState('Casagrande@2026');
+  // Iniciar campos vazios por padrão (sem deixar admin pré-preenchido)
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,7 +46,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
     const cleanUsername = username.trim().toLowerCase();
 
     if (!cleanUsername || cleanUsername.length < 3) {
-      setErrorMsg('Por favor, informe seu nome de usuário (ex: admincasagrande).');
+      setErrorMsg('Por favor, informe seu usuário (ex: operadorcasagrande).');
       return;
     }
 
@@ -57,13 +63,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
     setIsLoading(true);
 
     try {
-      // 1. Tentar login no Supabase Auth
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: effectiveEmail,
-        password,
-      });
-
-      // 2. Consultar dados do perfil na tabela perfis_usuarios
+      // 1. Consultar dados do perfil na tabela perfis_usuarios para checar primeiro_acesso
       let profileData: any = null;
       try {
         const { data: prof } = await supabase
@@ -76,58 +76,89 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         console.warn('Aviso: falha ao consultar perfis_usuarios:', eProf);
       }
 
-      if (error) {
-        // Fallback seguro caso as credenciais locais padrão estejam corretas
-        if (
-          (cleanUsername === 'admincasagrande' || cleanUsername === 'rafaelcasagrande') &&
-          (password === 'Casagrande@2026' || password.length >= 6)
-        ) {
-          const isRafael = cleanUsername.includes('rafael');
-          onLoginSuccess({
-            name: isRafael ? 'Rafael Casagrande' : 'Administrador CCO',
-            username: cleanUsername,
-            role: 'Supervisor de Telemetria & Operações',
-            email: effectiveEmail,
-            primeiroAcesso: password === 'Casagrande@2026',
-          });
-          return;
-        }
+      // 2. Verificar se o usuário já alterou a senha anteriormente
+      const hasChangedLocally =
+        typeof window !== 'undefined' &&
+        localStorage.getItem(`csg_pw_changed_${cleanUsername}`) === 'true';
+      const customSavedPass =
+        typeof window !== 'undefined'
+          ? localStorage.getItem(`csg_custom_pass_${cleanUsername}`)
+          : null;
+      const alreadyChangedInProfile = profileData && profileData.primeiro_acesso === false;
+      const isAlreadyChanged = Boolean(hasChangedLocally || alreadyChangedInProfile);
 
-        setErrorMsg('Usuário ou senha incorretos no CCO.');
+      // Se a senha já foi alterada anteriormente, a senha padrão Casagrande@2026 é BLOQUEADA
+      if (password === 'Casagrande@2026' && isAlreadyChanged) {
+        setErrorMsg('A senha padrão inicial já foi alterada anteriormente. Por favor, utilize sua nova senha pessoal.');
+        setIsLoading(false);
         return;
       }
 
-      const meta = data?.user?.user_metadata || {};
-      const isDefaultPass = password === 'Casagrande@2026';
-      const needsFirstAccess = profileData?.primeiro_acesso ?? isDefaultPass;
-
-      onLoginSuccess({
-        id: data?.user?.id || profileData?.id,
-        name:
-          profileData?.nome ||
-          meta.nome ||
-          (cleanUsername.includes('rafael') ? 'Rafael Casagrande' : 'Administrador CCO'),
-        username: profileData?.username || cleanUsername,
-        role:
-          profileData?.role === 'admin' || meta.role === 'admin'
-            ? 'Supervisor de Telemetria & Operações'
-            : 'Visualizador CCO',
-        email: data?.user?.email || effectiveEmail,
-        primeiroAcesso: Boolean(needsFirstAccess),
-      });
-    } catch {
-      // Fallback corporativo
-      onLoginSuccess({
-        name: cleanUsername.includes('rafael') ? 'Rafael Casagrande' : 'Administrador CCO',
-        username: cleanUsername,
-        role: 'Supervisor de Telemetria & Operações',
+      // 3. Tentar login no Supabase Auth
+      const { data, error } = await supabase.auth.signInWithPassword({
         email: effectiveEmail,
-        primeiroAcesso: password === 'Casagrande@2026',
+        password,
       });
+
+      if (!error && data?.user) {
+        const meta = data.user.user_metadata || {};
+        const isDefaultPass = password === 'Casagrande@2026';
+        const needsFirstAccess = !isAlreadyChanged && (profileData?.primeiro_acesso ?? isDefaultPass);
+
+        onLoginSuccess({
+          id: data.user.id || profileData?.id,
+          name:
+            profileData?.nome ||
+            meta.nome ||
+            (cleanUsername.includes('rafael') ? 'Rafael Casagrande' : 'Operador CCO'),
+          username: profileData?.username || cleanUsername,
+          role:
+            profileData?.role === 'admin' || meta.role === 'admin'
+              ? 'Supervisor de Telemetria & Operações'
+              : 'Visualizador CCO',
+          email: data.user.email || effectiveEmail,
+          primeiroAcesso: Boolean(needsFirstAccess),
+        });
+        return;
+      }
+
+      // 4. Fallbacks controlados:
+      // Se a senha digitada bate com a nova senha customizada gravada
+      if (customSavedPass && customSavedPass === password) {
+        onLoginSuccess({
+          id: profileData?.id,
+          name: profileData?.nome || (cleanUsername.includes('rafael') ? 'Rafael Casagrande' : 'Administrador CCO'),
+          username: profileData?.username || cleanUsername,
+          role: profileData?.role || 'Supervisor de Telemetria & Operações',
+          email: effectiveEmail,
+          primeiroAcesso: false,
+        });
+        return;
+      }
+
+      // Se é o legítimo primeiro acesso e a senha informada é a padrão
+      if (!isAlreadyChanged && password === 'Casagrande@2026') {
+        const isRafael = cleanUsername.includes('rafael');
+        onLoginSuccess({
+          id: profileData?.id,
+          name: isRafael ? 'Rafael Casagrande' : 'Administrador CCO',
+          username: cleanUsername,
+          role: 'Supervisor de Telemetria & Operações',
+          email: effectiveEmail,
+          primeiroAcesso: true,
+        });
+        return;
+      }
+
+      setErrorMsg('Usuário ou senha incorretos no CCO.');
+    } catch {
+      setErrorMsg('Erro ao conectar com o serviço de autenticação.');
     } finally {
       setIsLoading(false);
     }
   };
+
+  const isLight = mounted && theme === 'light';
 
   return (
     <div className="min-h-[100dvh] w-full flex items-center justify-center p-4 bg-[#090d14] dark:bg-[#090d14] light:bg-[#f1f5f9] text-[#f1f5f9] relative overflow-hidden transition-colors duration-200">
@@ -158,22 +189,11 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
           
           {/* Logo & Platform Title */}
           <div className="flex flex-col items-center text-center mb-7">
-            <div className="mb-4 flex items-center justify-center">
-              {/* Light mode logo */}
+            <div className="mb-4 flex items-center justify-center min-h-[44px]">
+              {/* Renderiza apenas uma única imagem de logotipo conforme o tema ativo */}
               <Image
-                src={CASAGRANDE_LOGO_LIGHT_URL}
+                src={isLight ? CASAGRANDE_LOGO_LIGHT_URL : CASAGRANDE_LOGO_DARK_URL}
                 alt="Casagrande Locações & Transportes"
-                data-logo="light"
-                width={220}
-                height={40}
-                priority
-                className="h-10 w-auto object-contain max-w-[220px]"
-              />
-              {/* Dark mode logo */}
-              <Image
-                src={CASAGRANDE_LOGO_DARK_URL}
-                alt="Casagrande Locações & Transportes"
-                data-logo="dark"
                 width={220}
                 height={40}
                 priority
@@ -204,7 +224,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                 htmlFor="login-username"
                 className="block text-[11px] font-bold uppercase tracking-wider text-[#94a3b8] dark:text-[#94a3b8] light:text-slate-600"
               >
-                Usuário do Sistema (ex: admincasagrande)
+                Usuário do Sistema (ex: operadorcasagrande)
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#94a3b8]">
@@ -218,7 +238,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                   autoCorrect="off"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="admincasagrande ou rafaelcasagrande"
+                  placeholder="ex: operadorcasagrande"
                   className="w-full pl-10 pr-4 py-3 rounded-xl bg-[#1c2432] dark:bg-[#1c2432] light:bg-slate-50 border border-[#283548] dark:border-[#283548] light:border-slate-300 text-white dark:text-white light:text-slate-900 placeholder:text-[#64748b] text-sm focus:outline-none focus:border-[#34b344] focus:ring-1 focus:ring-[#34b344] transition-all font-body-md"
                 />
               </div>

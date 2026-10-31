@@ -28,12 +28,15 @@ function applyThemeToDOM(newTheme: Theme) {
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>('dark');
+  const [mounted, setMounted] = useState<boolean>(false);
 
   useEffect(() => {
+    setMounted(true);
     const savedTheme = (typeof window !== 'undefined'
       ? localStorage.getItem('casagrande-theme')
       : null) as Theme | null;
     const initial = savedTheme === 'light' || savedTheme === 'dark' ? savedTheme : 'dark';
+    setThemeState(initial);
     applyThemeToDOM(initial);
   }, []);
 
