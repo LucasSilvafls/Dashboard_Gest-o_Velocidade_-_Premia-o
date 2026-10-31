@@ -10,26 +10,9 @@
 
 ## 📌 Sumário Executivo
 
-O **Painel de Controle de Velocidade e Telemetria da Frota** é uma solução corporativa desenvolvida para a **Casagrande Locações e Transportes**, projetada para transformar dados brutos de telemetria veicular (sensores embarcados, tacógrafos e rastreadores) em inteligência operacional e governança de segurança do trabalho (SESMT).
+O **Painel de Controle de Velocidade e Telemetria da Frota** é uma solução corporativa desenvolvida para a uma empresa, projetada para transformar dados brutos de em inteligência operacional e governança de segurança do trabalho.
 
-A plataforma consolida o monitoramento contínuo da frota pesada e leve, viabilizando diagnósticos precisos sobre excessos de velocidade, pontos críticos de rodovias no Mato Grosso do Sul e Goiás, reincidência de condutores, e a apuração transparente do **Programa de Premiação de Direção Segura: Motorista x Caminhão**.
-
----
-
-## 📊 Números-Chave da Base Operacional
-
-| Indicador | Valor Registrado | Observações |
-| :--- | :--- | :--- |
-| **Alertas Brutos Ingeridos** | **16.067** | Telemetria completa (velocidade, fadiga, distração, marcha lenta, freadas). |
-| **Excessos de Velocidade Monitorados** | **9.051** | **56,3%** do volume total de eventos da frota. |
-| **Veículos Ativos com Ocorrências** | **35 veículos** | Distribuídos em 7 categorias funcionais. |
-| **Categorias de Veículos Mapeadas** | **7 categorias** | Cavalos Mecânicos, Caçambas, Leves, Pipas, Comboios, Munk e Ônibus. |
-| **Condutores Identificados** | **21 motoristas** | Monitorados via crachá eletrônico / chaveiro iButton. |
-| **Período de Apuração da Amostra** | **26/09/2026 a 25/10/2026** | 30 dias contínuos de operação rodoviária e frentes de serviço. |
-| **Pico Absoluto de Velocidade** | **158 km/h** | Veículo leve na Rodovia MS-436. |
-| **Teto Regulamentar de Caminhões** | **80 km/h** | Limite máximo estrito para qualificação na premiação corporativa. |
-
----
+A plataforma consolida o monitoramento contínuo da frota pesada e leve, viabilizando diagnósticos precisos sobre excessos de velocidade, pontos críticos de rodovias, reincidência de condutores, e a apuração transparente do **Programa de Premiação de Direção Segura**.
 
 ## 🚀 Principais Diferenciais e Recursos da Solução
 
