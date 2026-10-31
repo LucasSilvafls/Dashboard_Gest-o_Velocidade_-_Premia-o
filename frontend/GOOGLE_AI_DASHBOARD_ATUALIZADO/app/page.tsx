@@ -661,6 +661,7 @@ export default function Home() {
                 setIsRoadModalOpen(true);
               }}
               onSaveRules={handleSaveRules}
+              onVehiclesUpdated={() => loadSupabaseData(true)}
             />
           )}
         </main>

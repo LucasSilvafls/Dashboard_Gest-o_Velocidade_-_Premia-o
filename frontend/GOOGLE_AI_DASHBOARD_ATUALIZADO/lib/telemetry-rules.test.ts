@@ -17,6 +17,11 @@ import {
   parseCurrencyBR,
   DEFAULT_BONUS_RULES,
 } from './telemetry-rules';
+import {
+  resolveVehicleCategory,
+  cleanPlate,
+  normalizeVehicleCategory,
+} from './telemetry-service';
 import { INITIAL_DRIVERS, INITIAL_INCIDENTS } from './telemetry-data';
 
 test('calculateCompliance correctly marks <= 80 km/h as APTO', () => {
@@ -333,6 +338,46 @@ test('parseCurrencyBR e DEFAULT_BONUS_RULES: converte valores monetários em for
   const customBonus = parseCurrencyBR('1.500,00');
   const totalPrevisto = aptosCount * customBonus;
   assert.equal(totalPrevisto, 6000);
+});
+
+test('Vínculo Placa x Categoria: resolveVehicleCategory e cleanPlate vinculam mesmo com categoria "-"', () => {
+  // 1. Placa leve conhecida com categoria "-" deve retornar 'LEVE'
+  assert.equal(resolveVehicleCategory('SLW4D68', '-'), 'LEVE');
+  assert.equal(resolveVehicleCategory('slw-4d68', ''), 'LEVE');
+  assert.equal(resolveVehicleCategory('GCB8F87', 'NÃO CLASSIFICADO'), 'LEVE');
+
+  // 2. Placa cavalo conhecida com categoria "-" deve retornar 'CAVALO'
+  assert.equal(resolveVehicleCategory('NRZ2826', '-'), 'CAVALO');
+  assert.equal(resolveVehicleCategory('OOG7B71', ''), 'CAVALO');
+
+  // 3. Placa ônibus com categoria "-" deve retornar 'ÔNIBUS'
+  assert.equal(resolveVehicleCategory('SLY2F45', '-'), 'ÔNIBUS');
+
+  // 4. Placa munk com categoria "-" deve retornar 'MUNK'
+  assert.equal(resolveVehicleCategory('RWI4I99', '-'), 'MUNK');
+
+  // 5. Placa caçamba com categoria "-" deve retornar 'CAÇAMBA'
+  assert.equal(resolveVehicleCategory('RVH9A52', '-'), 'CAÇAMBA');
+
+  // 6. Placa pipa com categoria "-" deve retornar 'PIPA'
+  assert.equal(resolveVehicleCategory('RWE1J53', '-'), 'PIPA');
+
+  // 7. Placa comboio com categoria "-" deve retornar 'COMBOIO'
+  assert.equal(resolveVehicleCategory('RWG4D55', '-'), 'COMBOIO');
+
+  // 8. cleanPlate higieniza corretamente
+  assert.equal(cleanPlate(' slw-4d68 '), 'SLW4D68');
+  assert.equal(cleanPlate('ABC-1234'), 'ABC1234');
+  assert.equal(cleanPlate(''), '');
+
+  // 9. normalizeVehicleCategory nunca retorna "-" ou termos espúrios
+  assert.equal(normalizeVehicleCategory('-'), 'CAVALO');
+  assert.equal(normalizeVehicleCategory(''), 'CAVALO');
+  assert.equal(normalizeVehicleCategory(null), 'CAVALO');
+  assert.equal(normalizeVehicleCategory('-', 'SLW4D68'), 'LEVE');
+  assert.equal(normalizeVehicleCategory('TEST', 'TESTDEL'), 'CAVALO');
+  assert.equal(resolveVehicleCategory('TESTDEL', 'TEST'), 'CAVALO');
+  assert.equal(resolveVehicleCategory('SLY2F45', '-'), 'ÔNIBUS');
 });
 
 

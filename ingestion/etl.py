@@ -248,6 +248,13 @@ class TelemetryETLPipeline:
             veiculo_existente = veiculos_cache[placa_raw]
             if categoria != "Não Classificado" and veiculo_existente.categoria == "Não Classificado":
                 veiculo_existente.categoria = categoria
+            elif categoria == "Não Classificado" and veiculo_existente.categoria and veiculo_existente.categoria != "Não Classificado":
+                categoria = veiculo_existente.categoria
+
+            if prefixo and not veiculo_existente.prefixo:
+                veiculo_existente.prefixo = prefixo
+            elif not prefixo and veiculo_existente.prefixo:
+                prefixo = veiculo_existente.prefixo
 
         veiculo_id = veiculos_cache[placa_raw].id
 

@@ -1,8 +1,15 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { RoadParameter, AuditLog } from '@/lib/telemetry-data';
 import { BonusRules, DEFAULT_BONUS_RULES } from '@/lib/telemetry-rules';
+import {
+  fetchFleetVehicles,
+  saveFleetVehicle,
+  deleteFleetVehicle,
+  FleetVehicleRecord,
+  cleanPlate,
+} from '@/lib/telemetry-service';
 
 interface AdminParamsScreenProps {
   roadParams: RoadParameter[];
@@ -10,7 +17,10 @@ interface AdminParamsScreenProps {
   onOpenRoadModal: (param?: RoadParameter) => void;
   onSaveRules: (minHours: number, baseBonus: string) => void;
   bonusRules?: BonusRules;
+  onVehiclesUpdated?: () => void;
 }
+
+const ALL_CATEGORIES = ['LEVE', 'CAVALO', 'CAÇAMBA', 'PIPA', 'COMBOIO', 'MUNK', 'ÔNIBUS'] as const;
 
 export default function AdminParamsScreen({
   roadParams,
@@ -18,10 +28,135 @@ export default function AdminParamsScreen({
   onOpenRoadModal,
   onSaveRules,
   bonusRules,
+  onVehiclesUpdated,
 }: AdminParamsScreenProps) {
-  const [activeTab, setActiveTab] = useState<'roads' | 'rules' | 'logs'>('roads');
+  const [activeTab, setActiveTab] = useState<'roads' | 'rules' | 'logs' | 'vehicles'>('roads');
   const [isPropagating, setIsPropagating] = useState(false);
   const [propagatedSuccess, setPropagatedSuccess] = useState(false);
+
+  // Estados da Frota (Vínculo Placa x Categoria)
+  const [vehicles, setVehicles] = useState<FleetVehicleRecord[]>([]);
+  const [isLoadingVehicles, setIsLoadingVehicles] = useState(false);
+  const [vehicleSearch, setVehicleSearch] = useState('');
+  const [vehicleCategoryFilter, setVehicleCategoryFilter] = useState('TODAS');
+  const [isAddVehicleModalOpen, setIsAddVehicleModalOpen] = useState(false);
+  const [newVehiclePlate, setNewVehiclePlate] = useState('');
+  const [newVehicleCategory, setNewVehicleCategory] = useState<string>('LEVE');
+  const [newVehiclePrefix, setNewVehiclePrefix] = useState('');
+  const [newVehicleUo, setNewVehicleUo] = useState('CASAGRANDE');
+  const [vehicleNotification, setVehicleNotification] = useState<{ message: string; isError?: boolean } | null>(null);
+  const [isSavingVehicle, setIsSavingVehicle] = useState(false);
+
+  const loadVehicles = async () => {
+    setIsLoadingVehicles(true);
+    try {
+      const data = await fetchFleetVehicles();
+      setVehicles(data);
+    } catch (err) {
+      console.warn('Erro ao carregar veículos:', err);
+    } finally {
+      setIsLoadingVehicles(false);
+    }
+  };
+
+  useEffect(() => {
+    loadVehicles();
+  }, []);
+
+  const handleQuickCategoryChange = async (plate: string, newCategory: string) => {
+    const existing = vehicles.find((v) => v.placa === plate);
+    const updated = await saveFleetVehicle({
+      placa: plate,
+      categoria: newCategory,
+      prefixo: existing?.prefixo,
+      uo: existing?.uo || 'CASAGRANDE',
+    });
+
+    if (updated.success) {
+      setVehicles((prev) =>
+        prev.map((v) => (v.placa === plate ? { ...v, categoria: newCategory } : v))
+      );
+      setVehicleNotification({ message: `Placa ${plate} vinculada à categoria ${newCategory}!` });
+      setTimeout(() => setVehicleNotification(null), 3000);
+      onVehiclesUpdated?.();
+    } else {
+      setVehicleNotification({ message: `Erro ao salvar: ${updated.error}`, isError: true });
+      setTimeout(() => setVehicleNotification(null), 4000);
+    }
+  };
+
+  const handleSaveNewVehicle = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cp = cleanPlate(newVehiclePlate);
+    if (!cp || cp.length < 5) {
+      setVehicleNotification({ message: 'Informe uma placa válida (ex: ABC1D23).', isError: true });
+      setTimeout(() => setVehicleNotification(null), 3500);
+      return;
+    }
+
+    setIsSavingVehicle(true);
+    try {
+      const res = await saveFleetVehicle({
+        placa: cp,
+        categoria: newVehicleCategory,
+        prefixo: newVehiclePrefix.trim() || undefined,
+        uo: newVehicleUo.trim() || 'CASAGRANDE',
+      });
+
+      if (res.success) {
+        setVehicleNotification({ message: `Placa ${cp} vinculada com sucesso à categoria ${newVehicleCategory}!` });
+        setTimeout(() => setVehicleNotification(null), 3500);
+        setIsAddVehicleModalOpen(false);
+        setNewVehiclePlate('');
+        setNewVehiclePrefix('');
+        await loadVehicles();
+        onVehiclesUpdated?.();
+      } else {
+        setVehicleNotification({ message: `Erro: ${res.error}`, isError: true });
+        setTimeout(() => setVehicleNotification(null), 4000);
+      }
+    } finally {
+      setIsSavingVehicle(false);
+    }
+  };
+
+  const handleDeleteVehicle = async (plate: string) => {
+    if (!confirm(`Deseja realmente remover o vínculo da placa ${plate}?`)) return;
+    const res = await deleteFleetVehicle(plate);
+    if (res.success) {
+      setVehicles((prev) => prev.filter((v) => v.placa !== plate));
+      setVehicleNotification({ message: `Placa ${plate} removida do cadastro.` });
+      setTimeout(() => setVehicleNotification(null), 3000);
+      onVehiclesUpdated?.();
+    } else {
+      setVehicleNotification({ message: `Erro ao remover placa: ${res.error}`, isError: true });
+      setTimeout(() => setVehicleNotification(null), 4000);
+    }
+  };
+
+  const filteredVehicles = useMemo(() => {
+    return vehicles.filter((v) => {
+      const q = vehicleSearch.trim().toUpperCase();
+      const matchSearch = !q || v.placa.includes(q) || (v.prefixo && v.prefixo.toUpperCase().includes(q));
+      const matchCat = vehicleCategoryFilter === 'TODAS' || v.categoria.toUpperCase() === vehicleCategoryFilter;
+      return matchSearch && matchCat;
+    });
+  }, [vehicles, vehicleSearch, vehicleCategoryFilter]);
+
+  // Contadores por categoria
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = { TODAS: vehicles.length };
+    for (const cat of ALL_CATEGORIES) {
+      counts[cat] = 0;
+    }
+    for (const v of vehicles) {
+      const cat = v.categoria.toUpperCase();
+      if (counts[cat] !== undefined) {
+        counts[cat] = (counts[cat] || 0) + 1;
+      }
+    }
+    return counts;
+  }, [vehicles]);
 
   // Regras de Parâmetro e Bonificação (inicializa com dados persistidos ou defaults)
   const [minHours, setMinHours] = useState<number>(bonusRules?.minHours ?? DEFAULT_BONUS_RULES.minHours);
@@ -267,6 +402,22 @@ export default function AdminParamsScreen({
             <span>Logs do Sistema & Auditoria</span>
             <span className="font-tabular-data text-[10px] px-1.5 py-0.2 rounded-full bg-[#2ca03a]/20 text-[#2ca03a] border border-[#2ca03a]/40 font-bold">
               {auditLogs.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('vehicles')}
+            className={`px-3.5 py-2 rounded-lg text-xs font-semibold transition-all inline-flex items-center gap-2 cursor-pointer whitespace-nowrap shrink-0 min-h-[40px] ${
+              activeTab === 'vehicles'
+                ? 'bg-[#1c2026] text-[#2ca03a] border border-[#2d333b] shadow-sm font-bold'
+                : 'text-[#9ba3af] hover:text-white hover:bg-[#181c22]'
+            }`}
+          >
+            <span className="material-symbols-outlined text-[17px]">directions_car</span>
+            <span>Vínculo Placa x Categoria</span>
+            <span className="font-tabular-data text-[10px] px-1.5 py-0.2 rounded-full bg-[#2ca03a]/20 text-[#2ca03a] border border-[#2ca03a]/40 font-bold">
+              {vehicles.length}
             </span>
           </button>
         </div>
@@ -623,6 +774,371 @@ export default function AdminParamsScreen({
             </div>
           </div>
         </section>
+      )}
+
+      {/* ABA 4: Vínculo Placa x Categoria Veicular */}
+      {activeTab === 'vehicles' && (
+        <section className="bg-[#14171c] rounded-xl p-4 sm:p-5 border border-[#262b35] shadow-sm flex flex-col gap-4 animate-fade-in">
+          {/* Cabeçalho da Aba */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#262b35]">
+            <div>
+              <div className="flex items-center gap-2">
+                <div className="w-2.5 h-2.5 rounded-full bg-[#34b344]" />
+                <h2 className="font-headline-md text-sm sm:text-base font-bold text-[#dde3ed]">
+                  Vínculo de Placas à Categoria Veicular
+                </h2>
+                <span className="font-tabular-data text-[11px] px-2 py-0.5 rounded-full bg-[#2ca03a]/20 text-[#2ca03a] font-bold border border-[#2ca03a]/40">
+                  {vehicles.length} Veículos Cadastrados
+                </span>
+              </div>
+              <p className="font-body-sm text-xs text-[#94a3b8] mt-1">
+                Relacione cada placa à sua categoria e prefixo oficial. Os lançamentos telemétricos importados sem categoria ou com &quot;-&quot; herdarão automaticamente estas definições.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+              <button
+                onClick={loadVehicles}
+                disabled={isLoadingVehicles}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded bg-[#181c22] hover:bg-[#1c2026] text-[#dde3ed] hover:text-white transition-all text-xs border border-[#262b35] font-semibold cursor-pointer shadow-sm"
+                type="button"
+                title="Recarregar veículos do banco de dados"
+              >
+                <span className={`material-symbols-outlined text-[#2ca03a] text-[17px] ${isLoadingVehicles ? 'animate-spin' : ''}`}>
+                  sync
+                </span>
+                <span>Sincronizar</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setNewVehiclePlate('');
+                  setNewVehicleCategory('LEVE');
+                  setNewVehiclePrefix('');
+                  setNewVehicleUo('CASAGRANDE');
+                  setIsAddVehicleModalOpen(true);
+                }}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded bg-[#2ca03a] hover:bg-[#34b344] text-white transition-all text-xs font-semibold cursor-pointer shadow-sm"
+                type="button"
+              >
+                <span className="material-symbols-outlined text-[18px]">add_circle</span>
+                <span>Cadastrar Nova Placa</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Notificação Temporária de Ação */}
+          {vehicleNotification && (
+            <div
+              className={`p-3 rounded-lg text-xs font-semibold flex items-center justify-between border ${
+                vehicleNotification.isError
+                  ? 'bg-[#ef4444]/10 border-[#ef4444]/40 text-[#ef4444]'
+                  : 'bg-[#2ca03a]/10 border-[#2ca03a]/40 text-[#34b344]'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-[18px]">
+                  {vehicleNotification.isError ? 'error' : 'check_circle'}
+                </span>
+                <span>{vehicleNotification.message}</span>
+              </div>
+              <button
+                onClick={() => setVehicleNotification(null)}
+                className="text-[#94a3b8] hover:text-white"
+                type="button"
+              >
+                <span className="material-symbols-outlined text-[16px]">close</span>
+              </button>
+            </div>
+          )}
+
+          {/* Cards Rápidos de Distribuição de Categoria */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+            {ALL_CATEGORIES.map((cat) => {
+              const count = categoryCounts[cat] || 0;
+              const isSelected = vehicleCategoryFilter === cat;
+              return (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setVehicleCategoryFilter(isSelected ? 'TODAS' : cat)}
+                  className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
+                    isSelected
+                      ? 'bg-[#1e2735] border-[#34b344] shadow-[0_0_10px_rgba(52,179,68,0.2)]'
+                      : 'bg-[#181c22] border-[#262b35] hover:border-[#2ca03a]/40'
+                  }`}
+                >
+                  <div className="text-[10px] uppercase font-bold text-[#94a3b8] truncate">
+                    {cat}
+                  </div>
+                  <div className="font-tabular-data text-lg font-bold text-white mt-0.5">
+                    {count}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Barra de Filtros e Busca */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-[#101317] p-2.5 rounded-lg border border-[#262b35]">
+            <div className="relative flex-1">
+              <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-[#94a3b8] text-[18px]">
+                search
+              </span>
+              <input
+                type="text"
+                placeholder="Filtrar por placa ou prefixo..."
+                value={vehicleSearch}
+                onChange={(e) => setVehicleSearch(e.target.value)}
+                className="w-full bg-[#181c22] text-[#dde3ed] text-xs pl-8 pr-3 py-1.5 rounded border border-[#262b35] focus:outline-none focus:border-[#2ca03a] placeholder:text-[#64748b]"
+              />
+              {vehicleSearch && (
+                <button
+                  onClick={() => setVehicleSearch('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#94a3b8] hover:text-white"
+                  type="button"
+                >
+                  <span className="material-symbols-outlined text-[16px]">close</span>
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-1.5 overflow-x-auto">
+              <button
+                type="button"
+                onClick={() => setVehicleCategoryFilter('TODAS')}
+                className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-colors cursor-pointer shrink-0 ${
+                  vehicleCategoryFilter === 'TODAS'
+                    ? 'bg-[#2ca03a] text-white'
+                    : 'bg-[#181c22] text-[#94a3b8] hover:text-white border border-[#262b35]'
+                }`}
+              >
+                Todas ({vehicles.length})
+              </button>
+              {ALL_CATEGORIES.map((cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setVehicleCategoryFilter(cat)}
+                  className={`px-2 py-1 rounded text-[11px] font-semibold transition-colors cursor-pointer shrink-0 ${
+                    vehicleCategoryFilter === cat
+                      ? 'bg-[#2ca03a] text-white'
+                      : 'bg-[#181c22] text-[#94a3b8] hover:text-white border border-[#262b35]'
+                  }`}
+                >
+                  {cat} ({categoryCounts[cat] || 0})
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Tabela de Veículos e Vínculo */}
+          <div className="overflow-x-auto rounded-lg bg-[#101317] border border-[#262b35] scrollbar-visible touch-scroll-x">
+            <table className="w-full min-w-[700px] text-left font-tabular-data text-xs border-collapse whitespace-nowrap">
+              <thead>
+                <tr className="bg-[#181c22] text-[#94a3b8] text-[10px] uppercase border-b border-[#262b35]">
+                  <th className="py-3 px-3.5">Placa</th>
+                  <th className="py-3 px-3.5">Prefixo</th>
+                  <th className="py-3 px-3.5">Categoria Respectiva (Vínculo)</th>
+                  <th className="py-3 px-3.5">Enquadramento SESMT</th>
+                  <th className="py-3 px-3.5">Unidade (UO)</th>
+                  <th className="py-3 px-3.5 text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#262b35]">
+                {filteredVehicles.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-8 text-center text-[#94a3b8] italic">
+                      Nenhum veículo encontrado com os filtros atuais.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredVehicles.map((v) => {
+                    const isLeve = v.categoria.toUpperCase() === 'LEVE';
+                    return (
+                      <tr key={v.placa} className="hover:bg-[#181c22] transition-colors">
+                        <td className="py-3 px-3.5">
+                          <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-[#34b344]" />
+                            <span className="font-mono font-bold text-sm text-[#f1f5f9] tracking-wider bg-[#181c22] border border-[#283548] px-2 py-0.5 rounded">
+                              {v.placa}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-3.5 text-[#94a3b8] font-mono">
+                          {v.prefixo || <span className="text-[#64748b] italic">Não informado</span>}
+                        </td>
+                        <td className="py-3 px-3.5">
+                          {/* Seletor Rápido de Categoria com feedback imediato */}
+                          <div className="flex items-center gap-2">
+                            <select
+                              value={v.categoria}
+                              onChange={(e) => handleQuickCategoryChange(v.placa, e.target.value)}
+                              className="bg-[#1c2432] text-white border border-[#283548] hover:border-[#34b344] focus:border-[#34b344] rounded px-2.5 py-1 text-xs font-semibold focus:outline-none transition-colors cursor-pointer"
+                            >
+                              {ALL_CATEGORIES.map((cat) => (
+                                <option key={cat} value={cat}>
+                                  {cat}
+                                </option>
+                              ))}
+                            </select>
+                            <span className="text-[10px] text-[#2ca03a] font-bold">VINCULADO</span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-3.5">
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${
+                              isLeve
+                                ? 'bg-[#3b82f6]/10 text-[#60a5fa] border-[#3b82f6]/30'
+                                : 'bg-[#eab308]/10 text-[#facc15] border-[#eab308]/30'
+                            }`}
+                          >
+                            {isLeve ? 'Veículo Leve' : 'Composição Pesada'}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3.5 text-[#94a3b8]">
+                          {v.uo || 'CASAGRANDE'}
+                        </td>
+                        <td className="py-3 px-3.5 text-right">
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteVehicle(v.placa)}
+                            title="Remover veículo"
+                            className="p-1 rounded text-[#94a3b8] hover:text-[#ef4444] hover:bg-[#ef4444]/10 transition-colors cursor-pointer"
+                          >
+                            <span className="material-symbols-outlined text-[18px]">delete</span>
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Rodapé Informativo */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 text-[#94a3b8] text-[11px] border-t border-[#262b35]/40">
+            <div className="flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-[#2ca03a] text-[15px]">verified</span>
+              <span>
+                Todas as placas listadas são vinculadas em tempo real durante a ingestão e importação de planilhas.
+              </span>
+            </div>
+            <div className="font-tabular-data text-[10px]">
+              Total no Cadastro: <strong className="text-white">{vehicles.length}</strong>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Modal de Cadastro de Nova Placa */}
+      {isAddVehicleModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
+          <div className="bg-[#14171c] border border-[#283548] rounded-xl max-w-md w-full p-5 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-[#262b35]">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-[#34b344] text-[22px]">
+                  directions_car
+                </span>
+                <h3 className="font-headline-md text-base font-bold text-white">
+                  Cadastrar Vínculo de Placa
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAddVehicleModalOpen(false)}
+                className="text-[#94a3b8] hover:text-white cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveNewVehicle} className="space-y-4 text-xs">
+              <div className="space-y-1">
+                <label className="text-[#94a3b8] font-semibold block">
+                  Placa do Veículo <span className="text-[#ef4444]">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ex: SLW4D68"
+                  value={newVehiclePlate}
+                  onChange={(e) => setNewVehiclePlate(e.target.value.toUpperCase())}
+                  className="w-full bg-[#181c22] border border-[#283548] focus:border-[#34b344] rounded px-3 py-2 text-white font-mono uppercase text-sm tracking-wider focus:outline-none"
+                />
+                <span className="text-[10px] text-[#64748b]">
+                  Padrão Mercosul (ex: ABC1D23) ou convencional (ex: ABC1234).
+                </span>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[#94a3b8] font-semibold block">
+                  Categoria Respectiva <span className="text-[#ef4444]">*</span>
+                </label>
+                <select
+                  value={newVehicleCategory}
+                  onChange={(e) => setNewVehicleCategory(e.target.value)}
+                  className="w-full bg-[#181c22] border border-[#283548] focus:border-[#34b344] rounded px-3 py-2 text-white font-semibold text-xs focus:outline-none cursor-pointer"
+                >
+                  {ALL_CATEGORIES.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[#94a3b8] font-semibold block">
+                  Prefixo Operacional (Opcional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ex: Z4A4B5A71"
+                  value={newVehiclePrefix}
+                  onChange={(e) => setNewVehiclePrefix(e.target.value)}
+                  className="w-full bg-[#181c22] border border-[#283548] focus:border-[#34b344] rounded px-3 py-2 text-white font-mono text-xs focus:outline-none"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[#94a3b8] font-semibold block">
+                  Unidade Operacional (UO)
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ex: CASAGRANDE"
+                  value={newVehicleUo}
+                  onChange={(e) => setNewVehicleUo(e.target.value)}
+                  className="w-full bg-[#181c22] border border-[#283548] focus:border-[#34b344] rounded px-3 py-2 text-white text-xs focus:outline-none"
+                />
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2 border-t border-[#262b35]">
+                <button
+                  type="button"
+                  onClick={() => setIsAddVehicleModalOpen(false)}
+                  className="px-3.5 py-2 rounded bg-[#181c22] hover:bg-[#1c2026] text-[#94a3b8] hover:text-white border border-[#283548] transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingVehicle}
+                  className="px-4 py-2 rounded bg-[#2ca03a] hover:bg-[#34b344] text-white font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
+                >
+                  {isSavingVehicle && (
+                    <span className="material-symbols-outlined text-[16px] animate-spin">
+                      sync
+                    </span>
+                  )}
+                  <span>Salvar Vínculo</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

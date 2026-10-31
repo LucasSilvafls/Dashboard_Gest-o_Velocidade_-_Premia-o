@@ -15,6 +15,7 @@ import {
   CompetenceInfo,
   parseDateBR,
 } from '@/lib/telemetry-rules';
+import { normalizeVehicleCategory } from '@/lib/telemetry-service';
 
 export interface OperationalFilterState {
   competence: string;
@@ -104,21 +105,28 @@ export function useOperationalFilters(
       .map(([date, count]) => ({ date, count }));
   }, [incidents, competence, period, minTs, maxTs]);
 
-  // Available vehicle categories from dataset
+  // Available vehicle categories from dataset (garante vínculo por placa e elimina '-' e termos espúrios)
   const availableCategories = useMemo(() => {
+    const CANONICAL_SET = new Set(DEFAULT_CATEGORIES);
     const counts = new Map<string, number>();
+
     for (let i = 0; i < incidents.length; i++) {
       const inc = incidents[i];
       if (competence !== 'all' && !isDateInCompetence(inc.date, competence)) {
         continue;
       }
-      const cat = (inc.vehicleCategory || 'CAVALO').toUpperCase();
-      counts.set(cat, (counts.get(cat) || 0) + 1);
+      const cat = normalizeVehicleCategory(inc.vehicleCategory, inc.plate).toUpperCase();
+      if (CANONICAL_SET.has(cat)) {
+        counts.set(cat, (counts.get(cat) || 0) + 1);
+      }
     }
+
     if (counts.size === 0) {
       return DEFAULT_CATEGORIES.map((c) => ({ category: c, count: 0 }));
     }
+
     return Array.from(counts.entries())
+      .filter(([category]) => CANONICAL_SET.has(category))
       .sort((a, b) => b[1] - a[1])
       .map(([category, count]) => ({ category, count }));
   }, [incidents, competence]);

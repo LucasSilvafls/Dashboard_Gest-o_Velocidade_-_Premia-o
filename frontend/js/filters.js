@@ -157,17 +157,35 @@ function populateFilterDropdowns() {
     // 3. Categoria Veículo
     const categorySelect = document.getElementById('filter-category');
     if (categorySelect) {
+        const CANONICAL_CATS = ['LEVE', 'CAVALO', 'ÔNIBUS', 'MUNK', 'CAÇAMBA', 'COMBOIO', 'PIPA'];
+        const CANONICAL_SET = new Set(CANONICAL_CATS);
         const catCounts = {};
+
+        // Mapeamento canônico placa -> categoria
+        const plateCatMap = {
+            'SLW4D68': 'LEVE', 'SLW4D78': 'LEVE', 'GCB8F87': 'LEVE', 'SLZ6I17': 'LEVE',
+            'NRZ2826': 'CAVALO', 'OOG7B71': 'CAVALO', 'QAS8I69': 'CAVALO', 'QAT2H40': 'CAVALO',
+            'QAU4C60': 'CAVALO', 'QAU4C90': 'CAVALO', 'QAU5A10': 'CAVALO', 'QAV0G50': 'CAVALO',
+            'RWA0G22': 'CAVALO', 'RWA2B84': 'CAVALO', 'RWC5J44': 'CAVALO', 'RWD3J63': 'CAVALO',
+            'RWE3B52': 'CAVALO', 'RWF1B43': 'CAVALO', 'RWF6J23': 'CAVALO', 'RWG3A16': 'CAVALO',
+            'RWG5C03': 'CAVALO', 'RWH1B74': 'CAVALO', 'RWH4F54': 'CAVALO', 'RWJ2E44': 'CAVALO',
+            'SMB0C86': 'CAVALO', 'SMH0F42': 'CAVALO', 'SMI9E50': 'CAVALO', 'UGY5G31': 'CAVALO',
+            'SLY2F45': 'ÔNIBUS', 'SLZ2F45': 'ÔNIBUS', 'RWI4I99': 'MUNK', 'RWJ1A40': 'MUNK',
+            'RVH9A52': 'CAÇAMBA', 'RWE1J53': 'PIPA', 'RWG4D55': 'COMBOIO', 'RWF4H95': 'COMBOIO'
+        };
+
         allRecords.forEach(r => {
-            if (r.categoria) {
-                catCounts[r.categoria] = (catCounts[r.categoria] || 0) + 1;
+            const cleanP = (r.placa || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+            let cat = (r.categoria || '').trim().toUpperCase();
+            if (!cat || cat === '-' || cat === 'NÃO CLASSIFICADO' || !CANONICAL_SET.has(cat)) {
+                cat = plateCatMap[cleanP] || 'CAVALO';
+            }
+            if (CANONICAL_SET.has(cat)) {
+                catCounts[cat] = (catCounts[cat] || 0) + 1;
             }
         });
 
-        const allCats = Array.from(new Set([
-            ...(metaData.categorias || []),
-            ...Object.keys(catCounts)
-        ])).sort();
+        const allCats = CANONICAL_CATS.filter(c => (catCounts[c] || 0) > 0);
 
         categorySelect.innerHTML = `<option value="ALL">Todas as categorias (${allRecords.length.toLocaleString('pt-BR')})</option>`;
         allCats.forEach(cat => {

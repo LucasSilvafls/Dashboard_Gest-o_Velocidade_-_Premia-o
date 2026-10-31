@@ -1,9 +1,16 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import * as XLSX from 'xlsx';
-import { uploadSpreadsheetEvents } from '@/lib/telemetry-service';
-import { Upload, FileSpreadsheet, CheckCircle2, AlertTriangle, X, ShieldAlert, Loader2 } from 'lucide-react';
+import {
+  uploadSpreadsheetEvents,
+  resolveVehicleCategory,
+  cleanPlate,
+  saveFleetVehicle,
+  fetchFleetVehicles,
+  normalizeVehicleCategory,
+} from '@/lib/telemetry-service';
+import { Upload, FileSpreadsheet, CheckCircle2, AlertTriangle, X, ShieldAlert, Loader2, Sparkles } from 'lucide-react';
 import { useTheme } from '@/lib/ThemeContext';
 
 interface UploadSpreadsheetModalProps {
@@ -22,8 +29,13 @@ interface ParsedSummary {
   violationsAbove80: number;
   uniquePlates: number;
   unidentifiedCount: number;
+  autoLinkedCount: number;
+  categoryDistribution: Record<string, number>;
+  unmappedPlates: Array<{ plate: string; count: number }>;
   records: any[];
 }
+
+const VEHICLE_CATEGORIES = ['LEVE', 'CAVALO', 'ÔNIBUS', 'MUNK', 'CAÇAMBA', 'COMBOIO', 'PIPA'];
 
 export default function UploadSpreadsheetModal({
   isOpen,
@@ -38,13 +50,22 @@ export default function UploadSpreadsheetModal({
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [summary, setSummary] = useState<ParsedSummary | null>(null);
+  const [unmappedSelections, setUnmappedSelections] = useState<Record<string, string>>({});
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Pré-carrega cadastro de veículos ao abrir o modal
+  useEffect(() => {
+    if (isOpen) {
+      fetchFleetVehicles().catch(() => {});
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
   const resetState = () => {
     setSummary(null);
+    setUnmappedSelections({});
     setErrorMessage(null);
     setIsParsing(false);
     setIsUploading(false);
@@ -71,6 +92,9 @@ export default function UploadSpreadsheetModal({
     setIsParsing(true);
 
     try {
+      // Assegura frota atualizada antes do processamento
+      await fetchFleetVehicles().catch(() => {});
+
       const buffer = await file.arrayBuffer();
       const workbook = XLSX.read(buffer, { type: 'array' });
       const firstSheetName = workbook.SheetNames[0];
@@ -86,15 +110,19 @@ export default function UploadSpreadsheetModal({
       let violations80 = 0;
       let speedCount = 0;
       let unidentified = 0;
+      let autoLinked = 0;
+      const catDistribution: Record<string, number> = {};
+      const unmappedPlatesCount = new Map<string, number>();
 
       for (const row of rawData) {
-        // Normaliza chaves da planilha para minúsculo
+        // Normaliza chaves da planilha para maiúsculo
         const norm: Record<string, any> = {};
         for (const [k, v] of Object.entries(row)) {
           norm[k.trim().toUpperCase()] = v;
         }
 
-        const placa = fixText(norm['PLACA'] || norm['VEICULO'] || norm['VEÍCULO'] || norm['PLACA VEÍCULO'] || 'SEM-PLACA').toUpperCase();
+        const rawPlate = fixText(norm['PLACA'] || norm['VEICULO'] || norm['VEÍCULO'] || norm['PLACA VEÍCULO'] || 'SEM-PLACA');
+        const placa = cleanPlate(rawPlate) || 'SEM-PLACA';
         if (placa && placa !== 'SEM-PLACA') platesSet.add(placa);
 
         const motoristaRaw = fixText(norm['MOTORISTA'] || norm['CONDUTOR'] || norm['NOME'] || 'Sem Identificação');
@@ -124,7 +152,30 @@ export default function UploadSpreadsheetModal({
         const horaEvento = fixText(norm['HORA'] || norm['HORA_EVENTO'] || norm['HORA EVENTO'] || '12:00:00');
         const hour = parseInt(horaEvento.split(':')[0] || '12', 10);
 
-        const categoria = fixText(norm['CATEGORIA'] || norm['TIPO VEICULO'] || 'CAVALO');
+        // Vínculo inteligente de placa à categoria oficial da frota
+        const rawCategoria = fixText(
+          norm['CATEGORIA'] ||
+          norm['TIPO VEICULO'] ||
+          norm['TIPO VEÍCULO'] ||
+          norm['CATEGORIA VEICULO'] ||
+          norm['CATEGORIA DO VEICULO'] ||
+          ''
+        );
+
+        const categoria = resolveVehicleCategory(placa, rawCategoria);
+
+        // Contabiliza auto-vínculo quando a categoria não veio na planilha ou veio como "-"
+        if (!rawCategoria || rawCategoria === '-' || rawCategoria.toUpperCase() === 'NÃO CLASSIFICADO') {
+          autoLinked++;
+        }
+
+        // Se a placa for sem classificação no sistema
+        if (categoria === 'CAVALO' && (!rawCategoria || rawCategoria === '-')) {
+          unmappedPlatesCount.set(placa, (unmappedPlatesCount.get(placa) || 0) + 1);
+        }
+
+        catDistribution[categoria] = (catDistribution[categoria] || 0) + 1;
+
         const prefixo = fixText(norm['PREFIXO'] || norm['FROTA'] || '');
         const cpf = fixText(norm['CPF'] || norm['DOCUMENTO'] || '-');
         const uo = fixText(norm['UO'] || norm['UNIDADE'] || 'CASAGRANDE');
@@ -161,6 +212,17 @@ export default function UploadSpreadsheetModal({
         });
       }
 
+      // Placas sem cadastro que precisam de confirmação se houver
+      const unmapped = Array.from(unmappedPlatesCount.entries())
+        .filter(([pl]) => pl !== 'SEM-PLACA')
+        .map(([pl, cnt]) => ({ plate: pl, count: cnt }));
+
+      const initialSelections: Record<string, string> = {};
+      unmapped.forEach((u) => {
+        initialSelections[u.plate] = 'CAVALO';
+      });
+      setUnmappedSelections(initialSelections);
+
       setSummary({
         fileName: file.name,
         totalRows: rawData.length,
@@ -168,6 +230,9 @@ export default function UploadSpreadsheetModal({
         violationsAbove80: violations80,
         uniquePlates: platesSet.size,
         unidentifiedCount: unidentified,
+        autoLinkedCount: autoLinked,
+        categoryDistribution: catDistribution,
+        unmappedPlates: unmapped,
         records,
       });
     } catch (err: any) {
@@ -191,17 +256,35 @@ export default function UploadSpreadsheetModal({
     setIsUploading(true);
     setUploadProgress(10);
 
+    // Se o usuário selecionou categorias personalizadas para placas não cadastradas, grava no cadastro de veículos
+    if (Object.keys(unmappedSelections).length > 0) {
+      for (const [placa, cat] of Object.entries(unmappedSelections)) {
+        await saveFleetVehicle({ placa, categoria: cat, uo: 'CASAGRANDE' }).catch(() => {});
+      }
+    }
+
+    // Atualiza os registros com as seleções se houver
+    const finalRecords = summary.records.map((rec) => {
+      if (unmappedSelections[rec.placa]) {
+        return {
+          ...rec,
+          categoria: unmappedSelections[rec.placa],
+        };
+      }
+      return rec;
+    });
+
     const progressInterval = setInterval(() => {
       setUploadProgress((prev) => (prev < 90 ? prev + 15 : prev));
     }, 400);
 
-    const result = await uploadSpreadsheetEvents(summary.fileName, summary.records);
+    const result = await uploadSpreadsheetEvents(summary.fileName, finalRecords);
     clearInterval(progressInterval);
     setUploadProgress(100);
 
     if (result.success) {
       onUploadSuccess(
-        `Planilha "${summary.fileName}" ingerida com sucesso! ${result.inserted} novos eventos adicionados e ${result.duplicates} duplicados ignorados com segurança.`,
+        `Planilha "${summary.fileName}" ingerida com sucesso! ${result.inserted} novos eventos adicionados e ${result.duplicates} duplicados ignorados com segurança. Vínculos de categoria vinculados automaticamente por placa.`,
         {
           fileName: summary.fileName,
           inserted: result.inserted,
@@ -442,6 +525,97 @@ export default function UploadSpreadsheetModal({
                   </p>
                 </div>
               </div>
+
+              {/* Card de Vínculo Placa x Categoria */}
+              <div
+                className={`p-3.5 rounded-xl border flex flex-col gap-2.5 text-xs ${
+                  isLight
+                    ? 'bg-emerald-50/80 border-emerald-200 text-slate-800'
+                    : 'bg-[#121c17] border-[#2ca03a]/40 text-[#f1f5f9]'
+                }`}
+              >
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-[#34b344] shrink-0" />
+                    <span className="font-bold text-sm">
+                      Vínculo Automático Placa &rarr; Categoria
+                    </span>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-[#2ca03a]/20 text-[#34b344] border border-[#2ca03a]/40">
+                    {summary.autoLinkedCount} vinculados pela placa
+                  </span>
+                </div>
+                <p className={`text-[11px] leading-relaxed ${isLight ? 'text-slate-600' : 'text-[#94a3b8]'}`}>
+                  O sistema relacionou cada placa da planilha com a sua respectiva categoria oficial cadastrada na base da frota, eliminando valores nulos ou &quot;-&quot; na visualização.
+                </p>
+
+                {/* Chips de Distribuição por Categoria */}
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {Object.entries(summary.categoryDistribution).map(([cat, count]) => (
+                    <span
+                      key={cat}
+                      className={`px-2 py-0.5 rounded-lg text-[10px] font-semibold border ${
+                        isLight
+                          ? 'bg-white border-slate-200 text-slate-700'
+                          : 'bg-[#1c2432] border-[#283548] text-[#e2e8f0]'
+                      }`}
+                    >
+                      <strong className="text-[#34b344]">{cat}:</strong> {count}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Seção de placas novas/desconhecidas sem categoria se houver */}
+              {summary.unmappedPlates && summary.unmappedPlates.length > 0 && (
+                <div
+                  className={`p-3.5 rounded-xl border flex flex-col gap-3 text-xs ${
+                    isLight
+                      ? 'bg-amber-50/90 border-amber-200 text-amber-900'
+                      : 'bg-[#241a0d] border-[#f59e0b]/40 text-[#fef3c7]'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 font-bold text-amber-500">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    <span>Placas Novas Detectadas na Planilha</span>
+                  </div>
+                  <p className="text-[11px] text-amber-700 dark:text-amber-300">
+                    As seguintes placas não foram encontradas no cadastro oficial da frota. Defina a categoria de cada uma para registrar no banco de dados:
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {summary.unmappedPlates.map(({ plate, count }) => (
+                      <div
+                        key={plate}
+                        className={`p-2 rounded-lg border flex items-center justify-between gap-2 ${
+                          isLight ? 'bg-white border-amber-200' : 'bg-[#181512] border-amber-500/30'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-bold text-xs">{plate}</span>
+                          <span className="text-[10px] text-slate-400">({count} eventos)</span>
+                        </div>
+                        <select
+                          value={unmappedSelections[plate] || 'CAVALO'}
+                          onChange={(e) =>
+                            setUnmappedSelections((prev) => ({ ...prev, [plate]: e.target.value }))
+                          }
+                          className={`text-xs px-2 py-1 rounded border outline-none font-semibold ${
+                            isLight
+                              ? 'bg-slate-50 border-slate-300 text-slate-800'
+                              : 'bg-[#0c1017] border-[#283548] text-[#f1f5f9]'
+                          }`}
+                        >
+                          {VEHICLE_CATEGORIES.map((c) => (
+                            <option key={c} value={c}>
+                              {c}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Regra de Ouro Notice */}
               <div

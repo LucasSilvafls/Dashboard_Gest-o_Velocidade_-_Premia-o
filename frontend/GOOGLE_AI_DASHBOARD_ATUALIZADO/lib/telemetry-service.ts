@@ -47,17 +47,259 @@ function formatDateBR(dateStr: string | null): string {
 }
 
 /**
- * Normaliza a categoria do veículo preservando as categorias reais da frota CSG
+ * Registro estruturado de veículo da frota CSG
  */
-export function normalizeVehicleCategory(cat: string | null | undefined): string {
-  if (!cat) return 'CAVALO';
-  const c = cat.trim().toUpperCase();
-  if (c === 'ONIBUS' || c === 'ÔNIBUS') return 'ÔNIBUS';
-  if (c === 'CACAMBA' || c === 'CAÇAMBA') return 'CAÇAMBA';
-  if (c === 'LEVE' || c === 'CAVALO' || c === 'MUNK' || c === 'COMBOIO' || c === 'PIPA') {
-    return c;
+export interface FleetVehicleRecord {
+  placa: string;
+  categoria: string;
+  prefixo?: string | null;
+  uo?: string | null;
+  atualizado_em?: string | null;
+}
+
+/**
+ * Base canônica oficial da frota Casagrande (36 veículos vinculados).
+ * Usada como referência primária para vincular placas às suas respectivas categorias,
+ * mesmo quando planilhas externas não possuem a coluna de categoria ou contêm "-".
+ */
+export const KNOWN_FLEET_VEHICLES: Record<string, { category: string; prefix: string; uo?: string }> = {
+  // Leves / Utilitários de Apoio (10)
+  GCB8F87: { category: 'LEVE', prefix: 'ZDAA8E1DB', uo: 'CASAGRANDE' },
+  RWE5G04: { category: 'LEVE', prefix: 'ZA6E52F7D', uo: 'CASAGRANDE' },
+  RWG3A16: { category: 'LEVE', prefix: 'Z2D7AC767', uo: 'CASAGRANDE' },
+  RWJ2E44: { category: 'LEVE', prefix: 'ZBF4C13AA', uo: 'CASAGRANDE' },
+  SLW4D68: { category: 'LEVE', prefix: 'Z4A4B5A71', uo: 'CASAGRANDE' },
+  SLZ6I17: { category: 'LEVE', prefix: 'Z227E5E10', uo: 'CASAGRANDE' },
+  SLZ8E84: { category: 'LEVE', prefix: 'ZC33555FE', uo: 'CASAGRANDE' },
+  SMB0C86: { category: 'LEVE', prefix: 'Z081A7A11', uo: 'CASAGRANDE' },
+  SMH0F42: { category: 'LEVE', prefix: 'Z6CD4E205', uo: 'CASAGRANDE' },
+  SMI9E50: { category: 'LEVE', prefix: 'Z79873061', uo: 'CASAGRANDE' },
+
+  // Cavalos Mecânicos Florestais (9)
+  NRM4B28: { category: 'CAVALO', prefix: 'Z3375637E', uo: 'CASAGRANDE' },
+  NRZ2826: { category: 'CAVALO', prefix: 'Z07CD1BFF', uo: 'CASAGRANDE' },
+  OOG7B71: { category: 'CAVALO', prefix: 'Z49740EDF', uo: 'CASAGRANDE' },
+  QAO9B63: { category: 'CAVALO', prefix: 'Z7F781DC9', uo: 'CASAGRANDE' },
+  QAS8I69: { category: 'CAVALO', prefix: 'ZE0F0855C', uo: 'CASAGRANDE' },
+  QAX9D02: { category: 'CAVALO', prefix: 'Z45018CD7', uo: 'CASAGRANDE' },
+  SMH9E50: { category: 'CAVALO', prefix: 'ZAE3612F1', uo: 'CASAGRANDE' },
+  SMH9F31: { category: 'CAVALO', prefix: 'Z71770F86', uo: 'CASAGRANDE' },
+  UGY5G31: { category: 'CAVALO', prefix: 'Z8852D89A', uo: 'CASAGRANDE' },
+
+  // Caminhões Caçamba Basculante (9)
+  RVH9A52: { category: 'CAÇAMBA', prefix: 'Z95E630B2', uo: 'CASAGRANDE' },
+  RWH3J36: { category: 'CAÇAMBA', prefix: 'Z51F2C98A', uo: 'CASAGRANDE' },
+  RWH3J37: { category: 'CAÇAMBA', prefix: 'ZE0282F92', uo: 'CASAGRANDE' },
+  RWH3J38: { category: 'CAÇAMBA', prefix: 'Z0970F5C7', uo: 'CASAGRANDE' },
+  SLY0B50: { category: 'CAÇAMBA', prefix: 'Z18D9071B', uo: 'CASAGRANDE' },
+  SLY0B59: { category: 'CAÇAMBA', prefix: 'Z0B820EE2', uo: 'CASAGRANDE' },
+  SMJ5C10: { category: 'CAÇAMBA', prefix: 'ZCA790A77', uo: 'CASAGRANDE' },
+  SMK1H32: { category: 'CAÇAMBA', prefix: 'Z645D7D74', uo: 'CASAGRANDE' },
+  SMK1H43: { category: 'CAÇAMBA', prefix: 'ZAE47B2D3', uo: 'CASAGRANDE' },
+
+  // Caminhões Pipa de Irrigação (4)
+  RWE1J53: { category: 'PIPA', prefix: 'ZFB606DCF', uo: 'CASAGRANDE' },
+  RWG7I12: { category: 'PIPA', prefix: 'Z2AD6E162', uo: 'CASAGRANDE' },
+  RWG9H52: { category: 'PIPA', prefix: 'Z7F6AE629', uo: 'CASAGRANDE' },
+  SMK0F17: { category: 'PIPA', prefix: 'ZE7F4ADD8', uo: 'CASAGRANDE' },
+
+  // Caminhões Comboio de Abastecimento (2)
+  RWG4D55: { category: 'COMBOIO', prefix: 'ZF8D90CBA', uo: 'CASAGRANDE' },
+  RWH7I76: { category: 'COMBOIO', prefix: 'Z3C13690B', uo: 'CASAGRANDE' },
+
+  // Guindauto / Munk (1)
+  RWI4I99: { category: 'MUNK', prefix: 'ZA1CF28E9', uo: 'CASAGRANDE' },
+
+  // Ônibus / Transporte de Pessoas (1)
+  SLY2F45: { category: 'ÔNIBUS', prefix: 'ZF432216E', uo: 'CASAGRANDE' },
+};
+
+/**
+ * Cache dinâmico em memória da frota de veículos
+ */
+const fleetRegistryMap = new Map<string, FleetVehicleRecord>();
+
+// Inicializa o cache com a base canônica
+for (const [plate, info] of Object.entries(KNOWN_FLEET_VEHICLES)) {
+  fleetRegistryMap.set(plate, {
+    placa: plate,
+    categoria: info.category,
+    prefixo: info.prefix,
+    uo: info.uo || 'CASAGRANDE',
+    atualizado_em: null,
+  });
+}
+
+/**
+ * Limpa e padroniza placa para busca consistente
+ */
+export function cleanPlate(plate: string | null | undefined): string {
+  if (!plate) return '';
+  return plate.replace(/[^A-Za-z0-9]/g, '').trim().toUpperCase();
+}
+
+/**
+ * Normaliza a categoria do veículo preservando as categorias reais da frota CSG.
+ * Se uma placa for fornecida e a categoria for vazia ou "-", busca no cadastro de veículos.
+ */
+export function normalizeVehicleCategory(cat: string | null | undefined, plate?: string | null): string {
+  const cp = cleanPlate(plate);
+  const known = cp ? (fleetRegistryMap.get(cp) || KNOWN_FLEET_VEHICLES[cp]) : null;
+
+  // Se a placa estiver cadastrada e a categoria informada for vazia ou inválida, prioriza o cadastro oficial
+  if (known && (!cat || cat.trim() === '' || cat.trim() === '-' || cat.trim().toUpperCase() === 'NÃO CLASSIFICADO' || cat.trim() === 'SEM-CATEGORIA')) {
+    const kCat = 'categoria' in known ? known.categoria : (known as any).category;
+    if (kCat && kCat !== '-' && kCat !== 'NÃO CLASSIFICADO') return normalizeVehicleCategory(kCat);
   }
-  return c;
+
+  if (!cat || cat.trim() === '' || cat.trim() === '-' || cat.trim().toUpperCase() === 'NÃO CLASSIFICADO' || cat.trim() === 'SEM-CATEGORIA') {
+    if (known) {
+      const kCat = 'categoria' in known ? known.categoria : (known as any).category;
+      if (kCat && kCat !== '-' && kCat !== 'NÃO CLASSIFICADO') return normalizeVehicleCategory(kCat);
+    }
+    return 'CAVALO';
+  }
+
+  const c = cat.trim().toUpperCase();
+  if (c === 'ONIBUS' || c === 'ÔNIBUS' || c.includes('ONIBUS') || c.includes('ÔNIBUS')) return 'ÔNIBUS';
+  if (c === 'CACAMBA' || c === 'CAÇAMBA' || c.includes('CACAMBA') || c.includes('CAÇAMBA')) return 'CAÇAMBA';
+  if (c === 'MUNK' || c === 'MUNCK' || c.includes('MUNK') || c.includes('MUNCK')) return 'MUNK';
+  if (c === 'COMBOIO' || c.includes('COMBOIO')) return 'COMBOIO';
+  if (c === 'PIPA' || c.includes('PIPA')) return 'PIPA';
+  if (c === 'LEVE' || c.includes('LEVE') || c.includes('UTILIT')) return 'LEVE';
+  if (c === 'CAVALO' || c.includes('CAVALO') || c.includes('PESADO') || c.includes('BITREM') || c.includes('BI-TREM')) return 'CAVALO';
+
+  // Se a categoria bruta for um valor desconhecido (ex: 'TEST', 'OUTRO', etc.), recorre ao cadastro da placa
+  if (known) {
+    const kCat = 'categoria' in known ? known.categoria : (known as any).category;
+    if (kCat && kCat !== '-' && kCat !== 'NÃO CLASSIFICADO') return normalizeVehicleCategory(kCat);
+  }
+
+  return 'CAVALO';
+}
+
+/**
+ * Resolve a categoria respectiva de um veículo relacionando sua placa ao cadastro existente.
+ * Garante que lançamentos sem categoria ou com "-" sejam vinculados à categoria correta.
+ */
+export function resolveVehicleCategory(plate?: string | null, rawCategory?: string | null): string {
+  const cp = cleanPlate(plate);
+  const known = cp ? (fleetRegistryMap.get(cp) || KNOWN_FLEET_VEHICLES[cp]) : null;
+
+  // 1. Se a placa existe no cadastro da frota, ela tem precedência se a categoria bruta for '-' ou inválida
+  const isInvalidCat =
+    !rawCategory ||
+    rawCategory.trim() === '' ||
+    rawCategory.trim() === '-' ||
+    rawCategory.trim().toUpperCase() === 'NÃO CLASSIFICADO' ||
+    rawCategory.trim().toUpperCase() === 'SEM-CATEGORIA';
+
+  if (known) {
+    if (isInvalidCat) {
+      const regCat = 'categoria' in known ? known.categoria : (known as any).category;
+      return normalizeVehicleCategory(regCat);
+    }
+  }
+
+  // 2. Se a categoria bruta veio informada
+  if (!isInvalidCat && rawCategory) {
+    const norm = normalizeVehicleCategory(rawCategory, cp);
+    if (norm && norm !== '-') return norm;
+  }
+
+  // 3. Fallback pela placa conhecida
+  if (known) {
+    const regCat = 'categoria' in known ? known.categoria : (known as any).category;
+    return normalizeVehicleCategory(regCat);
+  }
+
+  return 'CAVALO';
+}
+
+/**
+ * Carrega a lista completa de veículos da frota sincronizada com o banco de dados (Supabase)
+ */
+export async function fetchFleetVehicles(): Promise<FleetVehicleRecord[]> {
+  try {
+    const { data, error } = await supabase
+      .from('veiculos')
+      .select('placa, categoria, prefixo, uo, atualizado_em')
+      .order('placa', { ascending: true });
+
+    if (!error && data && data.length > 0) {
+      for (const v of data) {
+        const cp = cleanPlate(v.placa);
+        if (cp) {
+          fleetRegistryMap.set(cp, {
+            placa: cp,
+            categoria: normalizeVehicleCategory(v.categoria),
+            prefixo: v.prefixo || KNOWN_FLEET_VEHICLES[cp]?.prefix || null,
+            uo: v.uo || 'CASAGRANDE',
+            atualizado_em: v.atualizado_em,
+          });
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Aviso: falha ao consultar veiculos no Supabase, usando cache local:', err);
+  }
+
+  return Array.from(fleetRegistryMap.values()).sort((a, b) => a.placa.localeCompare(b.placa));
+}
+
+/**
+ * Salva ou atualiza o vínculo de uma placa com sua categoria no sistema
+ */
+export async function saveFleetVehicle(vehicle: {
+  placa: string;
+  categoria: string;
+  prefixo?: string | null;
+  uo?: string | null;
+}): Promise<{ success: boolean; error?: string }> {
+  const cp = cleanPlate(vehicle.placa);
+  if (!cp) return { success: false, error: 'Placa inválida' };
+
+  const normCat = normalizeVehicleCategory(vehicle.categoria);
+  const rec: FleetVehicleRecord = {
+    placa: cp,
+    categoria: normCat,
+    prefixo: vehicle.prefixo || KNOWN_FLEET_VEHICLES[cp]?.prefix || null,
+    uo: vehicle.uo || 'CASAGRANDE',
+    atualizado_em: new Date().toISOString(),
+  };
+
+  // Atualiza cache em memória imediatamente para resposta rápida
+  fleetRegistryMap.set(cp, rec);
+
+  try {
+    const { error } = await supabase
+      .from('veiculos')
+      .upsert(rec, { onConflict: 'placa' });
+
+    if (error) {
+      console.warn('Aviso ao salvar veículo no Supabase:', error.message);
+      return { success: false, error: error.message };
+    }
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Erro ao salvar veículo' };
+  }
+}
+
+/**
+ * Remove um veículo do cadastro da frota
+ */
+export async function deleteFleetVehicle(placa: string): Promise<{ success: boolean; error?: string }> {
+  const cp = cleanPlate(placa);
+  fleetRegistryMap.delete(cp);
+
+  try {
+    const { error } = await supabase.from('veiculos').delete().eq('placa', cp);
+    if (error) throw error;
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
 }
 
 function mapRawRecordToIncident(row: any, idx: number): Incident {
@@ -89,7 +331,12 @@ function mapRawRecordToIncident(row: any, idx: number): Incident {
   const timeStr = row.hora || row.hora_evento || '12:00:00';
   const hour = typeof row.hour === 'number' ? row.hour : parseInt(timeStr.split(':')[0] || '12', 10);
   const shift = hour >= 6 && hour < 18 ? 'Diurno' : 'Noturno';
-  const category = normalizeVehicleCategory(row.categoria);
+
+  // Vincula a placa à sua categoria e prefixo respectivo
+  const cleanP = cleanPlate(row.placa);
+  const category = resolveVehicleCategory(cleanP, row.categoria);
+  const prefixo = row.prefixo || fleetRegistryMap.get(cleanP)?.prefixo || KNOWN_FLEET_VEHICLES[cleanP]?.prefix || '';
+
   const excessType =
     row.tipo === 'EXCESSO_VELOCIDADE' || row.tipo === 'EXCESSO_VELOCIDADE_POR_VIA'
       ? row.tipo
@@ -104,8 +351,8 @@ function mapRawRecordToIncident(row: any, idx: number): Incident {
     date: dateBR,
     time: timeStr,
     hour,
-    plate: row.placa || 'CSG-0000',
-    vehicleModel: row.prefixo ? `${category} (${row.prefixo})` : category,
+    plate: cleanP || row.placa || 'CSG-0000',
+    vehicleModel: prefixo ? `${category} (${prefixo})` : category,
     vehicleCategory: category,
     excessType,
     driver: hasDriver ? rawDriver : 'Sem Identificação',
@@ -282,6 +529,9 @@ export async function fetchDriverComplianceScores(): Promise<DriverScore[]> {
  */
 export async function fetchIncidents(limit = 15000): Promise<Incident[]> {
   try {
+    // Garante que o cadastro de veículos da frota está sincronizado para resolução precisa de categorias por placa
+    await fetchFleetVehicles().catch(() => {});
+
     let baseRecords: any[] = [];
     if (typeof window !== 'undefined') {
       try {
@@ -321,7 +571,7 @@ export async function fetchIncidents(limit = 15000): Promise<Incident[]> {
 
     // Chave de unicidade para mesclagem limpa
     const keyOf = (r: any) =>
-      `${r.placa || ''}_${r.data || r.data_evento || ''}_${r.hora || r.hora_evento || ''}_${r.velocidade || r.valor || ''}`;
+      `${cleanPlate(r.placa) || ''}_${r.data || r.data_evento || ''}_${r.hora || r.hora_evento || ''}_${r.velocidade || r.valor || ''}`;
 
     const map = new Map<string, any>();
     // Novos eventos do Supabase entram primeiro com prioridade
@@ -360,7 +610,7 @@ export async function fetchVehiclesSummary(): Promise<VehicleSummary[]> {
       const isHeavy = isHeavyVehicleCategory(v.categoria);
       const isBitrem = (v.categoria || '').toUpperCase().includes('BITREM') || (v.categoria || '').toUpperCase().includes('BI-TREM');
       return {
-        plate: v.placa,
+        plate: cleanPlate(v.placa),
         model: `${v.categoria || 'Cavalo Florestal'} ${v.prefixo ? `• ${v.prefixo}` : ''}`,
         category: isHeavy ? (isBitrem ? 'BI-TREM' : 'PESADO') : 'LEVE',
         totalExcesses: 180 + (idx % 120),
@@ -425,7 +675,8 @@ export async function fetchUploadAuditLogs(): Promise<AuditLog[]> {
 }
 
 /**
- * Envia um lote de eventos higienizados para o Supabase
+ * Envia um lote de eventos higienizados para o Supabase garantindo que toda placa
+ * esteja vinculada à sua categoria e prefixo respectivo antes da gravação.
  */
 export async function uploadSpreadsheetEvents(
   fileName: string,
@@ -437,8 +688,21 @@ export async function uploadSpreadsheetEvents(
     let insertedCount = 0;
     let duplicateCount = 0;
 
-    for (let i = 0; i < events.length; i += batchSize) {
-      const batch = events.slice(i, i + batchSize);
+    // Higienização prévia de integridade: vincula cada evento à categoria real de sua placa
+    const sanitizedEvents = events.map((ev) => {
+      const cp = cleanPlate(ev.placa);
+      const cat = resolveVehicleCategory(cp, ev.categoria);
+      const pref = ev.prefixo || fleetRegistryMap.get(cp)?.prefixo || KNOWN_FLEET_VEHICLES[cp]?.prefix || null;
+      return {
+        ...ev,
+        placa: cp || ev.placa,
+        categoria: cat,
+        prefixo: pref,
+      };
+    });
+
+    for (let i = 0; i < sanitizedEvents.length; i += batchSize) {
+      const batch = sanitizedEvents.slice(i, i + batchSize);
       const { data, error } = await supabase
         .from('eventos_telemetria')
         .upsert(batch, { onConflict: 'hash_dedup', ignoreDuplicates: true })
