@@ -387,6 +387,47 @@ html:not(.light) [data-logo="dark"] {
   display: none;
 }
 
+/* Explicit visible, elegant scrollbar for wide data tables */
+.scrollbar-visible {
+  scrollbar-width: thin;
+  scrollbar-color: #283548 #0c1017;
+}
+.scrollbar-visible::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+  display: block;
+}
+.scrollbar-visible::-webkit-scrollbar-track {
+  background: #0c1017;
+  border-radius: 4px;
+}
+.scrollbar-visible::-webkit-scrollbar-thumb {
+  background: #283548;
+  border-radius: 4px;
+  border: 1px solid #1c2432;
+}
+.scrollbar-visible::-webkit-scrollbar-thumb:hover {
+  background: #34b344;
+}
+
+.light .scrollbar-visible,
+html.light .scrollbar-visible {
+  scrollbar-color: #cbd5e1 #f1f5f9;
+}
+.light .scrollbar-visible::-webkit-scrollbar-track,
+html.light .scrollbar-visible::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+.light .scrollbar-visible::-webkit-scrollbar-thumb,
+html.light .scrollbar-visible::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border: 1px solid #e2e8f0;
+}
+.light .scrollbar-visible::-webkit-scrollbar-thumb:hover,
+html.light .scrollbar-visible::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
 /* Touch scrolling with native iOS/Android momentum physics */
 .touch-scroll-x {
   overflow-x: auto;

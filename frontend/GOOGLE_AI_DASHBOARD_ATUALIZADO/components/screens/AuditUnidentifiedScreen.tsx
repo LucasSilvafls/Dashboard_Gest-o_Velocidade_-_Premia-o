@@ -18,7 +18,7 @@ export default function AuditUnidentifiedScreen({
   onLinkDriver,
   filterState: externalFilterState,
 }: AuditUnidentifiedScreenProps) {
-  const [activeTab, setActiveTab] = useState<'all' | 'graves' | 'rodovias' | 'preconciliados'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'graves' | 'rodovias'>('all');
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [isSyncing, setIsSyncing] = useState(false);
   const pageSize = 20;
@@ -67,8 +67,6 @@ export default function AuditUnidentifiedScreen({
           (i.highway || '').toUpperCase().includes('MS-') ||
           (i.highway || '').toUpperCase().includes('BR-')
       );
-    } else if (activeTab === 'preconciliados') {
-      list = list.filter((i) => i.suggestedDriver != null || i.conciliationStatus === 'CONCILIADO');
     }
     return list;
   }, [baseFiltered, activeTab]);
@@ -687,17 +685,6 @@ export default function AuditUnidentifiedScreen({
               >
                 Trechos Rodoviários
               </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab('preconciliados')}
-                className={`px-2.5 py-1.5 rounded font-tabular-data text-[11px] cursor-pointer whitespace-nowrap shrink-0 transition-colors ${
-                  activeTab === 'preconciliados'
-                    ? 'bg-[#2ca03a] text-white font-bold'
-                    : 'text-[#94a3b8] hover:text-white'
-                }`}
-              >
-                Pré-Conciliados
-              </button>
             </div>
 
             <button
@@ -714,7 +701,7 @@ export default function AuditUnidentifiedScreen({
         {/* Search Toolbar */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5">
           <div className="relative w-full sm:w-80">
-            <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-[#94a3b8] text-[16px]">
+            <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-[#94a3b8] text-[16px] pointer-events-none flex items-center">
               search
             </span>
             <input
@@ -728,12 +715,12 @@ export default function AuditUnidentifiedScreen({
         </div>
 
         {/* Table */}
-        <div className="w-full overflow-x-auto scrollbar-none touch-scroll-x">
+        <div className="w-full overflow-x-auto scrollbar-visible touch-scroll-x">
           <div className="sm:hidden flex items-center gap-1.5 px-3 py-1 text-[11px] text-[#94a3b8] italic border-b border-[#283548]/40">
             <span className="material-symbols-outlined text-[14px]">swipe</span>
             <span>Deslize horizontalmente para navegar na matriz</span>
           </div>
-          <table className="w-full min-w-[850px] text-left font-tabular-data text-xs border-collapse whitespace-nowrap">
+          <table className="w-full min-w-[1050px] text-left font-tabular-data text-xs border-collapse whitespace-nowrap">
             <thead>
               <tr className="text-[#94a3b8] border-b border-[#283548] bg-[#0b0f14] text-[10px] uppercase">
                 <th

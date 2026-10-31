@@ -554,11 +554,6 @@ export default function ComplianceBonusScreen({
                 120
               </text>
 
-              <rect fill="#1c2432" height="20" rx="3" stroke="#ef4444" strokeWidth="1" width="120" x="720" y="106" />
-              <text fill="#ef4444" fontFamily="JetBrains Mono" fontSize="10" fontWeight="700" textAnchor="middle" x="780" y="120">
-                TETO: 80 km/h
-              </text>
-
               {chartDrivers.map((drv, idx) => {
                 const slotWidth = 760 / Math.max(chartDrivers.length, 1);
                 const barWidth = Math.min(56, slotWidth - 14);
@@ -714,7 +709,7 @@ export default function ComplianceBonusScreen({
       <div className="rounded-xl shadow-sm border border-[#283548] overflow-hidden flex flex-col mb-4 bg-[#131923]">
         <div className="p-3 bg-[#131923] border-b border-[#283548] flex flex-col md:flex-row items-center justify-between gap-3">
           <div className="relative w-full md:w-96">
-            <span className="material-symbols-outlined absolute left-3 top-2.5 text-[#94a3b8] text-[18px]">
+            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#94a3b8] text-[18px] pointer-events-none flex items-center">
               search
             </span>
             <input
@@ -775,8 +770,8 @@ export default function ComplianceBonusScreen({
         </div>
 
         {/* High Density Table */}
-        <div className="w-full overflow-x-auto scrollbar-none touch-scroll-x">
-          <table className="w-full text-left font-tabular-data text-xs whitespace-nowrap min-w-[750px]">
+        <div className="w-full overflow-x-auto scrollbar-visible touch-scroll-x">
+          <table className="w-full text-left font-tabular-data text-xs whitespace-nowrap min-w-[1050px]">
             <thead>
               <tr className="bg-[#0c1017] text-[#94a3b8] text-[10px] tracking-wider uppercase border-b border-[#283548]">
                 <th
