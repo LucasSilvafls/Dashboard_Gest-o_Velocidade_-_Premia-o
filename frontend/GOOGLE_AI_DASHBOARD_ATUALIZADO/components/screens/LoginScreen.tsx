@@ -86,22 +86,17 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         console.warn('Aviso: falha ao consultar perfis_usuarios:', eProf);
       }
 
-      const isDefaultPass = password === 'Casagrande@2026' || password === 'admin@casagrande2026';
-      const customSavedPass =
-        typeof window !== 'undefined'
-          ? localStorage.getItem(`csg_custom_pass_${cleanUsername}`)
-          : null;
-
-      // 2. Tentar login formal no Supabase Auth
+      // 2. Autenticação criptográfica primária: Supabase Auth
       try {
+        const targetEmail = profileData?.email || effectiveEmail;
         const { data, error } = await supabase.auth.signInWithPassword({
-          email: effectiveEmail,
+          email: targetEmail,
           password,
         });
 
         if (!error && data?.user) {
           const meta = data.user.user_metadata || {};
-          const needsFirstAccess = profileData?.primeiro_acesso ?? isDefaultPass;
+          const needsFirstAccess = profileData?.primeiro_acesso ?? false;
 
           onLoginSuccess({
             id: data.user.id || profileData?.id,
@@ -114,68 +109,51 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
               profileData?.role === 'admin' || meta.role === 'admin'
                 ? 'Supervisor de Telemetria & Operações'
                 : 'Visualizador CCO',
-            email: data.user.email || effectiveEmail,
+            email: data.user.email || targetEmail,
             primeiroAcesso: Boolean(needsFirstAccess),
           });
           return;
         }
       } catch (authErr) {
-        console.warn('Supabase Auth error:', authErr);
+        console.warn('Aviso: falha na tentativa via Supabase Auth:', authErr);
       }
 
-      // 3. Fallbacks garantidos CCO:
-      // A) Se a senha digitada for a senha padrão de contingência (Casagrande@2026 ou admin@casagrande2026)
-      if (
-        isDefaultPass &&
-        (cleanUsername.includes('admin') ||
-          cleanUsername.includes('casagrande') ||
-          cleanUsername.includes('rafael') ||
-          cleanUsername.includes('operador'))
-      ) {
-        const isRafael = cleanUsername.includes('rafael');
-        const needsFirstAccess = profileData?.primeiro_acesso ?? true;
-
-        onLoginSuccess({
-          id: profileData?.id,
-          name: profileData?.nome || (isRafael ? 'Rafael Casagrande' : 'Administrador CCO'),
-          username: cleanUsername,
-          role: profileData?.role || 'Supervisor de Telemetria & Operações',
-          email: effectiveEmail,
-          primeiroAcesso: Boolean(needsFirstAccess),
+      // 3. Autenticação criptográfica secundária: API Backend (FastAPI com bcrypt)
+      try {
+        const apiRes = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: rawInput,
+            password,
+          }),
         });
-        return;
+
+        if (apiRes.ok) {
+          const tokenData = await apiRes.json();
+          if (tokenData?.access_token) {
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('csg_backend_token', tokenData.access_token);
+            }
+            onLoginSuccess({
+              id: `api-user-${tokenData.username}`,
+              name: tokenData.nome_completo || 'Administrador CCO',
+              username: tokenData.username,
+              role:
+                tokenData.role === 'admin'
+                  ? 'Supervisor de Telemetria & Operações'
+                  : 'Visualizador CCO',
+              email: `${tokenData.username}@casagrandetransportes.com.br`,
+              primeiroAcesso: false,
+            });
+            return;
+          }
+        }
+      } catch {
+        // Backend API offline ou inacessível no ambiente estático
       }
 
-      // B) Se a senha digitada bate com a nova senha customizada gravada pelo usuário
-      if (customSavedPass && customSavedPass === password) {
-        onLoginSuccess({
-          id: profileData?.id,
-          name: profileData?.nome || (cleanUsername.includes('rafael') ? 'Rafael Casagrande' : 'Administrador CCO'),
-          username: cleanUsername,
-          role: profileData?.role || 'Supervisor de Telemetria & Operações',
-          email: effectiveEmail,
-          primeiroAcesso: false,
-        });
-        return;
-      }
-
-      // C) Se for qualquer senha com 6+ caracteres para os usuários autorizados
-      if (
-        password.length >= 6 &&
-        (cleanUsername === 'admincasagrande' || cleanUsername === 'rafaelcasagrande')
-      ) {
-        const isRafael = cleanUsername.includes('rafael');
-        onLoginSuccess({
-          id: profileData?.id,
-          name: profileData?.nome || (isRafael ? 'Rafael Casagrande' : 'Administrador CCO'),
-          username: cleanUsername,
-          role: 'Supervisor de Telemetria & Operações',
-          email: effectiveEmail,
-          primeiroAcesso: false,
-        });
-        return;
-      }
-
+      // Credenciais não validadas por nenhum dos provedores criptográficos
       setErrorMsg('Usuário ou senha incorretos no CCO.');
     } catch {
       setErrorMsg('Erro ao conectar com o serviço de autenticação.');

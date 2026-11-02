@@ -79,11 +79,11 @@ export default function FirstAccessPasswordModal({
           .eq('username', user.username);
       }
 
-      // 3. Gravar travas locais para o navegador nunca mais aceitar a senha inicial
+      // 3. Registrar sinalizador de primeiro acesso concluído (sem gravar senhas em texto puro)
       if (typeof window !== 'undefined' && user?.username) {
         try {
           localStorage.setItem(`csg_pw_changed_${user.username}`, 'true');
-          localStorage.setItem(`csg_custom_pass_${user.username}`, newPassword);
+          localStorage.removeItem(`csg_custom_pass_${user.username}`);
         } catch {}
       }
 
@@ -93,7 +93,7 @@ export default function FirstAccessPasswordModal({
       if (typeof window !== 'undefined' && user?.username) {
         try {
           localStorage.setItem(`csg_pw_changed_${user.username}`, 'true');
-          localStorage.setItem(`csg_custom_pass_${user.username}`, newPassword);
+          localStorage.removeItem(`csg_custom_pass_${user.username}`);
         } catch {}
       }
       onPasswordChanged();

@@ -257,7 +257,9 @@ export async function saveFleetVehicle(vehicle: {
   uo?: string | null;
 }): Promise<{ success: boolean; error?: string }> {
   const cp = cleanPlate(vehicle.placa);
-  if (!cp) return { success: false, error: 'Placa inválida' };
+  if (!cp || cp.length < 7 || cp.length > 8) {
+    return { success: false, error: 'Placa inválida: deve conter 7 ou 8 caracteres alfanuméricos.' };
+  }
 
   const normCat = normalizeVehicleCategory(vehicle.categoria);
   const rec: FleetVehicleRecord = {
@@ -291,6 +293,10 @@ export async function saveFleetVehicle(vehicle: {
  */
 export async function deleteFleetVehicle(placa: string): Promise<{ success: boolean; error?: string }> {
   const cp = cleanPlate(placa);
+  if (!cp || cp.length < 7 || cp.length > 8) {
+    return { success: false, error: 'Placa inválida para exclusão.' };
+  }
+
   fleetRegistryMap.delete(cp);
 
   try {
@@ -684,6 +690,10 @@ export async function uploadSpreadsheetEvents(
   userEmail = 'admin.cco@casagrandetransportes.com.br'
 ): Promise<{ success: boolean; inserted: number; duplicates: number; error?: string }> {
   try {
+    if (!Array.isArray(events) || events.length === 0) {
+      return { success: false, inserted: 0, duplicates: 0, error: 'Lista de eventos vazia ou inválida.' };
+    }
+    const cleanFileName = (fileName || 'planilha.xlsx').replace(/[^\w\.\-]/g, '_');
     const batchSize = 300;
     let insertedCount = 0;
     let duplicateCount = 0;
@@ -721,7 +731,7 @@ export async function uploadSpreadsheetEvents(
     try {
       const { error: histError } = await supabase.from('historico_uploads').insert([
         {
-          nome_arquivo: fileName,
+          nome_arquivo: cleanFileName,
           registros_novos: insertedCount,
           registros_duplicados: duplicateCount,
           usuario_email: userEmail,

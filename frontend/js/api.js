@@ -1,13 +1,29 @@
 /**
  * ============================================================================
  * API CLIENT & COMUNICAÇÃO RESTful CSG
- * Casagrande Locações e Transportes • Unidade Operacional CSG
+ * Casagrande Locações e Transportes
  * ============================================================================
  */
 
 const API_BASE_URL = window.location.origin.includes('http') && !window.location.protocol.startsWith('file:')
     ? window.location.origin
     : 'http://localhost:8000';
+
+/**
+ * Sanitiza strings para renderização segura no DOM (Prevenção contra XSS)
+ */
+function escapeHTML(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#x27;');
+}
+if (typeof window !== 'undefined') {
+    window.escapeHTML = escapeHTML;
+}
 
 function getAuthHeaders() {
     const headers = {

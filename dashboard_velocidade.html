@@ -2176,13 +2176,29 @@ html.light .logo-dark { display: none; }
 /**
  * ============================================================================
  * API CLIENT & COMUNICAÇÃO RESTful CSG
- * Casagrande Locações e Transportes • Unidade Operacional CSG
+ * Casagrande Locações e Transportes
  * ============================================================================
  */
 
 const API_BASE_URL = window.location.origin.includes('http') && !window.location.protocol.startsWith('file:')
     ? window.location.origin
     : 'http://localhost:8000';
+
+/**
+ * Sanitiza strings para renderização segura no DOM (Prevenção contra XSS)
+ */
+function escapeHTML(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#x27;');
+}
+if (typeof window !== 'undefined') {
+    window.escapeHTML = escapeHTML;
+}
 
 function getAuthHeaders() {
     const headers = {
@@ -2649,7 +2665,7 @@ function logoutUser() {
 /**
  * ============================================================================
  * GESTÃO DE USUÁRIOS E CONTROLE DE ACESSO (RBAC) - PAINEL ADMINISTRATIVO
- * Casagrande Locações e Transportes • Unidade Operacional CSG
+ * Casagrande Locações e Transportes
  * ============================================================================
  */
 
@@ -2696,18 +2712,24 @@ async function fetchUsersList() {
         tbody.innerHTML = users.map(u => {
             const isAdmin = u.role === 'admin';
             const dateStr = u.created_at ? new Date(u.created_at).toLocaleDateString('pt-BR') : '-';
+            const esc = typeof escapeHTML === 'function' ? escapeHTML : (s) => String(s || '');
+            const safeId = esc(u.id);
+            const safeUsername = esc(u.username);
+            const safeNome = esc(u.nome_completo || '-');
+            const safeEmail = esc(u.email || '-');
+            const safeRole = esc(u.role ? u.role.toUpperCase() : '');
             return `
                 <tr>
-                    <td class="font-mono font-bold text-main">#${u.id}</td>
-                    <td class="font-mono text-main font-semibold">${u.username}</td>
-                    <td class="text-sub">${u.nome_completo || '-'}</td>
-                    <td class="text-tech-muted font-mono text-[11px]">${u.email || '-'}</td>
+                    <td class="font-mono font-bold text-main">#${safeId}</td>
+                    <td class="font-mono text-main font-semibold">${safeUsername}</td>
+                    <td class="text-sub">${safeNome}</td>
+                    <td class="text-tech-muted font-mono text-[11px]">${safeEmail}</td>
                     <td>
                         <span class="risk-badge ${isAdmin ? 'risk-badge-low' : 'risk-badge-med'}">
-                            ${u.role.toUpperCase()}
+                            ${safeRole}
                         </span>
                     </td>
-                    <td class="font-mono text-tech-muted text-[11px]">${dateStr}</td>
+                    <td class="font-mono text-tech-muted text-[11px]">${esc(dateStr)}</td>
                 </tr>
             `;
         }).join('');
@@ -2855,16 +2877,20 @@ function updateAuditTab() {
                 </tr>
             `;
         } else {
+            const esc = typeof escapeHTML === 'function' ? escapeHTML : (s) => String(s || '');
             tbody.innerHTML = topPlacas.map((item, idx) => {
                 const rodoviasStr = Array.from(item.rodovias).slice(0, 2).join(', ') || 'N/D';
+                const escPlaca = esc(item.placa);
+                const escCat = esc(item.categoria);
+                const escRod = esc(rodoviasStr);
                 return `
                     <tr>
                         <td class="font-mono font-bold text-main">#${idx + 1}</td>
-                        <td class="font-mono font-bold text-main">${item.placa}</td>
-                        <td class="text-sub">${item.categoria}</td>
-                        <td class="font-mono font-bold metric-warning">${item.count.toLocaleString('pt-BR')}</td>
-                        <td class="font-mono font-bold metric-danger">${item.maxSpeed.toFixed(0)} km/h</td>
-                        <td class="text-tech-muted text-xs truncate max-w-[160px]" title="${rodoviasStr}">${rodoviasStr}</td>
+                        <td class="font-mono font-bold text-main">${escPlaca}</td>
+                        <td class="text-sub">${escCat}</td>
+                        <td class="font-mono font-bold metric-warning">${Number(item.count).toLocaleString('pt-BR')}</td>
+                        <td class="font-mono font-bold metric-danger">${Number(item.maxSpeed).toFixed(0)} km/h</td>
+                        <td class="text-tech-muted text-xs truncate max-w-[160px]" title="${escRod}">${escRod}</td>
                     </tr>
                 `;
             }).join('');
@@ -3585,17 +3611,35 @@ function populateFilterDropdowns() {
     // 3. Categoria Veículo
     const categorySelect = document.getElementById('filter-category');
     if (categorySelect) {
+        const CANONICAL_CATS = ['LEVE', 'CAVALO', 'ÔNIBUS', 'MUNK', 'CAÇAMBA', 'COMBOIO', 'PIPA'];
+        const CANONICAL_SET = new Set(CANONICAL_CATS);
         const catCounts = {};
+
+        // Mapeamento canônico placa -> categoria
+        const plateCatMap = {
+            'SLW4D68': 'LEVE', 'SLW4D78': 'LEVE', 'GCB8F87': 'LEVE', 'SLZ6I17': 'LEVE',
+            'NRZ2826': 'CAVALO', 'OOG7B71': 'CAVALO', 'QAS8I69': 'CAVALO', 'QAT2H40': 'CAVALO',
+            'QAU4C60': 'CAVALO', 'QAU4C90': 'CAVALO', 'QAU5A10': 'CAVALO', 'QAV0G50': 'CAVALO',
+            'RWA0G22': 'CAVALO', 'RWA2B84': 'CAVALO', 'RWC5J44': 'CAVALO', 'RWD3J63': 'CAVALO',
+            'RWE3B52': 'CAVALO', 'RWF1B43': 'CAVALO', 'RWF6J23': 'CAVALO', 'RWG3A16': 'CAVALO',
+            'RWG5C03': 'CAVALO', 'RWH1B74': 'CAVALO', 'RWH4F54': 'CAVALO', 'RWJ2E44': 'CAVALO',
+            'SMB0C86': 'CAVALO', 'SMH0F42': 'CAVALO', 'SMI9E50': 'CAVALO', 'UGY5G31': 'CAVALO',
+            'SLY2F45': 'ÔNIBUS', 'SLZ2F45': 'ÔNIBUS', 'RWI4I99': 'MUNK', 'RWJ1A40': 'MUNK',
+            'RVH9A52': 'CAÇAMBA', 'RWE1J53': 'PIPA', 'RWG4D55': 'COMBOIO', 'RWF4H95': 'COMBOIO'
+        };
+
         allRecords.forEach(r => {
-            if (r.categoria) {
-                catCounts[r.categoria] = (catCounts[r.categoria] || 0) + 1;
+            const cleanP = (r.placa || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+            let cat = (r.categoria || '').trim().toUpperCase();
+            if (!cat || cat === '-' || cat === 'NÃO CLASSIFICADO' || !CANONICAL_SET.has(cat)) {
+                cat = plateCatMap[cleanP] || 'CAVALO';
+            }
+            if (CANONICAL_SET.has(cat)) {
+                catCounts[cat] = (catCounts[cat] || 0) + 1;
             }
         });
 
-        const allCats = Array.from(new Set([
-            ...(metaData.categorias || []),
-            ...Object.keys(catCounts)
-        ])).sort();
+        const allCats = CANONICAL_CATS.filter(c => (catCounts[c] || 0) > 0);
 
         categorySelect.innerHTML = `<option value="ALL">Todas as categorias (${allRecords.length.toLocaleString('pt-BR')})</option>`;
         allCats.forEach(cat => {
@@ -3981,28 +4025,33 @@ function renderPremiacaoTable(precomputedData) {
         return;
     }
 
+    const esc = typeof escapeHTML === 'function' ? escapeHTML : (s) => String(s || '');
     tbody.innerHTML = pageItems.map(d => {
         const isApto = d.isEligible;
         const statusBadge = isApto
             ? '<span class="risk-badge risk-badge-low"><i data-lucide="award" class="w-3 h-3 inline"></i> APTO À BONIFICAÇÃO</span>'
-            : `<span class="risk-badge risk-badge-high"><i data-lucide="x-circle" class="w-3 h-3 inline"></i> INAPTO (> ${data.threshold} km/h)</span>`;
+            : `<span class="risk-badge risk-badge-high"><i data-lucide="x-circle" class="w-3 h-3 inline"></i> INAPTO (> ${Number(data.threshold) || 80} km/h)</span>`;
+
+        const escMot = esc(d.motorista);
+        const escPlatesList = esc(d.platesList);
+        const safeDriverArg = esc(d.motorista).replace(/'/g, "\\'");
 
         return `
-            <tr class="hover:bg-hover transition-colors cursor-pointer" onclick="openPremiacaoAuditModal('${d.motorista.replace(/'/g, "\\'")}')">
+            <tr class="hover:bg-hover transition-colors cursor-pointer" onclick="openPremiacaoAuditModal('${safeDriverArg}')">
                 <td class="font-bold text-main whitespace-nowrap">
                     <div class="flex items-center gap-2">
                         <div class="w-6 h-6 rounded-full ${isApto ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'} flex items-center justify-center font-bold text-[10px]">
-                            ${d.motorista.charAt(0)}
+                            ${escMot.charAt(0)}
                         </div>
-                        <span>${d.motorista}</span>
+                        <span>${escMot}</span>
                     </div>
                 </td>
                 <td>${statusBadge}</td>
-                <td class="font-mono text-right font-bold ${isApto ? 'metric-brand' : 'metric-danger'}">${d.maxSpeed} km/h</td>
-                <td class="font-mono text-right text-tech-muted font-semibold">${d.excessOverThreshold}</td>
-                <td class="font-mono text-right text-sub">${d.totalAlerts}</td>
-                <td class="text-xs text-sub truncate max-w-[200px]" title="${d.platesList}">
-                    <span class="font-mono font-bold text-main">${d.platesCount}</span> veículo(s): <span class="font-mono text-[11px]">${d.platesList}</span>
+                <td class="font-mono text-right font-bold ${isApto ? 'metric-brand' : 'metric-danger'}">${Number(d.maxSpeed) || 0} km/h</td>
+                <td class="font-mono text-right text-tech-muted font-semibold">${Number(d.excessOverThreshold) || 0}</td>
+                <td class="font-mono text-right text-sub">${Number(d.totalAlerts) || 0}</td>
+                <td class="text-xs text-sub truncate max-w-[200px]" title="${escPlatesList}">
+                    <span class="font-mono font-bold text-main">${Number(d.platesCount) || 0}</span> veículo(s): <span class="font-mono text-[11px]">${escPlatesList}</span>
                 </td>
                 <td class="text-center">
                     <button type="button" class="btn-industrial px-2 py-1 text-[11px] font-bold text-main hover:text-brand-accent">
@@ -4089,17 +4138,23 @@ function openPremiacaoAuditModal(driverName) {
 
     if (tbody) {
         const sortedRecs = [...driver.records].sort((a, b) => (b.velocidade || 0) - (a.velocidade || 0));
+        const esc = typeof escapeHTML === 'function' ? escapeHTML : (s) => String(s || '');
         tbody.innerHTML = sortedRecs.map((r, i) => {
             const isOver = (r.velocidade || 0) > data.threshold;
+            const escData = esc(r.data);
+            const escHora = esc(r.hora || '');
+            const escPlaca = esc(r.placa);
+            const escCat = esc(r.categoria || '-');
+            const escLog = esc(r.logradouro || '-');
             return `
                 <tr>
                     <td class="font-mono text-tech-muted text-xs">#${i + 1}</td>
-                    <td class="font-mono text-sub text-xs">${r.data} ${r.hora || ''}</td>
-                    <td class="font-mono font-bold text-main">${r.placa}</td>
-                    <td class="text-xs text-sub">${r.categoria || '-'}</td>
-                    <td class="font-mono font-bold ${isOver ? 'metric-danger' : 'metric-brand'} text-right">${r.velocidade} km/h</td>
-                    <td class="font-mono text-tech-muted text-right">${data.threshold} km/h</td>
-                    <td class="text-xs text-sub truncate max-w-[150px]" title="${r.logradouro || ''}">${r.logradouro || '-'}</td>
+                    <td class="font-mono text-sub text-xs">${escData} ${escHora}</td>
+                    <td class="font-mono font-bold text-main">${escPlaca}</td>
+                    <td class="text-xs text-sub">${escCat}</td>
+                    <td class="font-mono font-bold ${isOver ? 'metric-danger' : 'metric-brand'} text-right">${Number(r.velocidade) || 0} km/h</td>
+                    <td class="font-mono text-tech-muted text-right">${Number(data.threshold) || 80} km/h</td>
+                    <td class="text-xs text-sub truncate max-w-[150px]" title="${escLog}">${escLog}</td>
                 </tr>
             `;
         }).join('');
@@ -4161,6 +4216,16 @@ let sortColumn = 'id';
 let sortDirection = 'asc';
 let searchQuery = '';
 let selectedAdminFile = null;
+
+const _esc = typeof escapeHTML === 'function' ? escapeHTML : (s) => {
+    if (s === null || s === undefined) return '';
+    return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#x27;');
+};
 
 // Toast Feedback System
 function showToast(message, type = 'info') {
@@ -4354,7 +4419,7 @@ function updateKPIs() {
     const kUnid = document.getElementById('kpi-unidentified');
 
     if (kMax) kMax.innerHTML = `<span class="text-2xl font-bold font-mono metric-danger tracking-tight">${maxSpeed}</span> <span class="text-xs font-mono font-semibold text-tech-muted">km/h</span>`;
-    if (kDesc) kDesc.innerHTML = `<span class="font-mono font-bold text-main">${maxRec.placa}</span> <span class="text-tech-muted truncate ml-1.5">na ${maxRec.logradouro}</span>`;
+    if (kDesc) kDesc.innerHTML = `<span class="font-mono font-bold text-main">${_esc(maxRec.placa)}</span> <span class="text-tech-muted truncate ml-1.5">na ${_esc(maxRec.logradouro)}</span>`;
 
     const avgDelta = (sumDelta / total).toFixed(1).replace('.', ',');
     if (kAvg) kAvg.innerHTML = `<span class="text-2xl font-bold font-mono metric-warning tracking-tight">+${avgDelta}</span> <span class="text-xs font-mono font-semibold text-tech-muted">km/h</span>`;
@@ -4386,15 +4451,21 @@ function updateExtremeCasesTable() {
     sorted.forEach(r => {
         const tr = document.createElement('tr');
         const isAnon = r.motorista === 'Sem Identificação';
+        const escPlaca = _esc(r.placa);
+        const escCat = _esc(r.categoria);
+        const escMot = _esc(isAnon ? 'Sem Crachá' : r.motorista);
+        const escLog = _esc(r.logradouro);
+        const escData = _esc(r.data);
+        const escHora = _esc(r.hora);
         tr.innerHTML = `
-            <td class="font-mono text-sub text-xs whitespace-nowrap">${r.data} <span class="text-tech-muted">${r.hora}</span></td>
-            <td class="font-mono font-bold text-main">${r.placa}</td>
-            <td><span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-500 border border-blue-500/20">${r.categoria}</span></td>
-            <td class="${isAnon ? 'metric-warning font-semibold' : 'text-sub'} text-xs truncate max-w-[150px]">${isAnon ? 'Sem Crachá' : r.motorista}</td>
-            <td class="font-mono text-right text-tech-muted">${r.limiar} km/h</td>
-            <td class="font-mono text-right font-bold metric-danger">${r.velocidade} km/h</td>
-            <td class="font-mono text-right font-bold metric-warning">+${r.delta} km/h</td>
-            <td class="text-sub truncate max-w-[160px] text-xs" title="${r.logradouro}">${r.logradouro}</td>
+            <td class="font-mono text-sub text-xs whitespace-nowrap">${escData} <span class="text-tech-muted">${escHora}</span></td>
+            <td class="font-mono font-bold text-main">${escPlaca}</td>
+            <td><span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-500 border border-blue-500/20">${escCat}</span></td>
+            <td class="${isAnon ? 'metric-warning font-semibold' : 'text-sub'} text-xs truncate max-w-[150px]">${escMot}</td>
+            <td class="font-mono text-right text-tech-muted">${Number(r.limiar) || 0} km/h</td>
+            <td class="font-mono text-right font-bold metric-danger">${Number(r.velocidade) || 0} km/h</td>
+            <td class="font-mono text-right font-bold metric-warning">+${Number(r.delta) || 0} km/h</td>
+            <td class="text-sub truncate max-w-[160px] text-xs" title="${escLog}">${escLog}</td>
         `;
         tr.onclick = () => openDetailModal(r.id);
         tr.className = 'cursor-pointer hover:bg-hover transition-colors';
@@ -4502,22 +4573,31 @@ function renderTable() {
         const tr = document.createElement('tr');
         const riskBadge = getRiskBadgeHTML(r.nivel);
         const isAnon = r.motorista === 'Sem Identificação';
+        const escId = _esc(r.id);
+        const escData = _esc(r.data);
+        const escHora = _esc(r.hora);
+        const escPlaca = _esc(r.placa);
+        const escCat = _esc(r.categoria);
+        const escMot = _esc(isAnon ? 'Sem Crachá' : r.motorista);
+        const escDur = _esc(r.duracao_str);
+        const escLog = _esc(r.logradouro);
+        const escCid = _esc(r.cidade);
 
         tr.innerHTML = `
-            <td class="font-mono text-tech-muted text-[11px]">#${String(r.id).padStart(5, '0')}</td>
-            <td class="font-mono whitespace-nowrap text-sub text-xs">${r.data} <span class="text-tech-muted">${r.hora}</span></td>
-            <td class="font-mono font-bold text-main">${r.placa}</td>
-            <td><span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-500 border border-blue-500/20">${r.categoria}</span></td>
-            <td class="${isAnon ? 'metric-warning font-semibold' : 'text-sub'} text-xs">${isAnon ? 'Sem Crachá' : r.motorista}</td>
-            <td class="font-mono text-right text-tech-muted text-xs">${r.limiar} km/h</td>
-            <td class="font-mono text-right font-bold metric-danger text-xs">${r.velocidade} km/h</td>
-            <td class="font-mono text-right font-bold metric-warning text-xs">+${r.delta} km/h</td>
-            <td class="font-mono text-right metric-brand text-xs">${r.duracao_str}</td>
+            <td class="font-mono text-tech-muted text-[11px]">#${String(escId).padStart(5, '0')}</td>
+            <td class="font-mono whitespace-nowrap text-sub text-xs">${escData} <span class="text-tech-muted">${escHora}</span></td>
+            <td class="font-mono font-bold text-main">${escPlaca}</td>
+            <td><span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-500 border border-blue-500/20">${escCat}</span></td>
+            <td class="${isAnon ? 'metric-warning font-semibold' : 'text-sub'} text-xs">${escMot}</td>
+            <td class="font-mono text-right text-tech-muted text-xs">${Number(r.limiar) || 0} km/h</td>
+            <td class="font-mono text-right font-bold metric-danger text-xs">${Number(r.velocidade) || 0} km/h</td>
+            <td class="font-mono text-right font-bold metric-warning text-xs">+${Number(r.delta) || 0} km/h</td>
+            <td class="font-mono text-right metric-brand text-xs">${escDur}</td>
             <td>${riskBadge}</td>
-            <td class="text-sub truncate max-w-[150px] text-xs" title="${r.logradouro}">${r.logradouro}</td>
-            <td class="text-tech-muted text-xs">${r.cidade}</td>
+            <td class="text-sub truncate max-w-[150px] text-xs" title="${escLog}">${escLog}</td>
+            <td class="text-tech-muted text-xs">${escCid}</td>
             <td class="text-center">
-                <button type="button" onclick="openDetailModal(${r.id})" class="btn-industrial px-2 py-1 text-[11px] font-semibold" title="Ver ficha da ocorrência">
+                <button type="button" onclick="openDetailModal(${Number(r.id)})" class="btn-industrial px-2 py-1 text-[11px] font-semibold" title="Ver ficha da ocorrência">
                     Ver
                 </button>
             </td>

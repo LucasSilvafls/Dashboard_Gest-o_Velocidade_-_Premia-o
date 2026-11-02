@@ -258,28 +258,33 @@ function renderPremiacaoTable(precomputedData) {
         return;
     }
 
+    const esc = typeof escapeHTML === 'function' ? escapeHTML : (s) => String(s || '');
     tbody.innerHTML = pageItems.map(d => {
         const isApto = d.isEligible;
         const statusBadge = isApto
             ? '<span class="risk-badge risk-badge-low"><i data-lucide="award" class="w-3 h-3 inline"></i> APTO À BONIFICAÇÃO</span>'
-            : `<span class="risk-badge risk-badge-high"><i data-lucide="x-circle" class="w-3 h-3 inline"></i> INAPTO (> ${data.threshold} km/h)</span>`;
+            : `<span class="risk-badge risk-badge-high"><i data-lucide="x-circle" class="w-3 h-3 inline"></i> INAPTO (> ${Number(data.threshold) || 80} km/h)</span>`;
+
+        const escMot = esc(d.motorista);
+        const escPlatesList = esc(d.platesList);
+        const safeDriverArg = esc(d.motorista).replace(/'/g, "\\'");
 
         return `
-            <tr class="hover:bg-hover transition-colors cursor-pointer" onclick="openPremiacaoAuditModal('${d.motorista.replace(/'/g, "\\'")}')">
+            <tr class="hover:bg-hover transition-colors cursor-pointer" onclick="openPremiacaoAuditModal('${safeDriverArg}')">
                 <td class="font-bold text-main whitespace-nowrap">
                     <div class="flex items-center gap-2">
                         <div class="w-6 h-6 rounded-full ${isApto ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'} flex items-center justify-center font-bold text-[10px]">
-                            ${d.motorista.charAt(0)}
+                            ${escMot.charAt(0)}
                         </div>
-                        <span>${d.motorista}</span>
+                        <span>${escMot}</span>
                     </div>
                 </td>
                 <td>${statusBadge}</td>
-                <td class="font-mono text-right font-bold ${isApto ? 'metric-brand' : 'metric-danger'}">${d.maxSpeed} km/h</td>
-                <td class="font-mono text-right text-tech-muted font-semibold">${d.excessOverThreshold}</td>
-                <td class="font-mono text-right text-sub">${d.totalAlerts}</td>
-                <td class="text-xs text-sub truncate max-w-[200px]" title="${d.platesList}">
-                    <span class="font-mono font-bold text-main">${d.platesCount}</span> veículo(s): <span class="font-mono text-[11px]">${d.platesList}</span>
+                <td class="font-mono text-right font-bold ${isApto ? 'metric-brand' : 'metric-danger'}">${Number(d.maxSpeed) || 0} km/h</td>
+                <td class="font-mono text-right text-tech-muted font-semibold">${Number(d.excessOverThreshold) || 0}</td>
+                <td class="font-mono text-right text-sub">${Number(d.totalAlerts) || 0}</td>
+                <td class="text-xs text-sub truncate max-w-[200px]" title="${escPlatesList}">
+                    <span class="font-mono font-bold text-main">${Number(d.platesCount) || 0}</span> veículo(s): <span class="font-mono text-[11px]">${escPlatesList}</span>
                 </td>
                 <td class="text-center">
                     <button type="button" class="btn-industrial px-2 py-1 text-[11px] font-bold text-main hover:text-brand-accent">
@@ -366,17 +371,23 @@ function openPremiacaoAuditModal(driverName) {
 
     if (tbody) {
         const sortedRecs = [...driver.records].sort((a, b) => (b.velocidade || 0) - (a.velocidade || 0));
+        const esc = typeof escapeHTML === 'function' ? escapeHTML : (s) => String(s || '');
         tbody.innerHTML = sortedRecs.map((r, i) => {
             const isOver = (r.velocidade || 0) > data.threshold;
+            const escData = esc(r.data);
+            const escHora = esc(r.hora || '');
+            const escPlaca = esc(r.placa);
+            const escCat = esc(r.categoria || '-');
+            const escLog = esc(r.logradouro || '-');
             return `
                 <tr>
                     <td class="font-mono text-tech-muted text-xs">#${i + 1}</td>
-                    <td class="font-mono text-sub text-xs">${r.data} ${r.hora || ''}</td>
-                    <td class="font-mono font-bold text-main">${r.placa}</td>
-                    <td class="text-xs text-sub">${r.categoria || '-'}</td>
-                    <td class="font-mono font-bold ${isOver ? 'metric-danger' : 'metric-brand'} text-right">${r.velocidade} km/h</td>
-                    <td class="font-mono text-tech-muted text-right">${data.threshold} km/h</td>
-                    <td class="text-xs text-sub truncate max-w-[150px]" title="${r.logradouro || ''}">${r.logradouro || '-'}</td>
+                    <td class="font-mono text-sub text-xs">${escData} ${escHora}</td>
+                    <td class="font-mono font-bold text-main">${escPlaca}</td>
+                    <td class="text-xs text-sub">${escCat}</td>
+                    <td class="font-mono font-bold ${isOver ? 'metric-danger' : 'metric-brand'} text-right">${Number(r.velocidade) || 0} km/h</td>
+                    <td class="font-mono text-tech-muted text-right">${Number(data.threshold) || 80} km/h</td>
+                    <td class="text-xs text-sub truncate max-w-[150px]" title="${escLog}">${escLog}</td>
                 </tr>
             `;
         }).join('');

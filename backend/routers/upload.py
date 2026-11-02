@@ -4,6 +4,7 @@ Protegido por RBAC: Exclusivo para usuários com papel 'admin'.
 Aciona o pipeline ETL da Task 1 e atualiza o banco de dados relacional.
 """
 
+import re
 import shutil
 import time
 from pathlib import Path
@@ -67,9 +68,12 @@ async def upload_telemetry_spreadsheet(
     session: Session = Depends(get_db_session),
 ) -> UploadResultResponse:
     """Processa upload seguro de planilhas e dispara o pipeline ETL."""
-    # 1. Validação de extensão do arquivo
-    original_filename = file.filename or "planilha_sem_nome.xlsx"
-    file_ext = Path(original_filename).suffix.lower()
+    # 1. Validação de extensão do arquivo e sanitização estrita contra Path Traversal
+    raw_filename = file.filename or "planilha_sem_nome.xlsx"
+    # Extrai estritamente o basename para eliminar qualquer tentativa de path traversal (ex: ../../evil.xlsx)
+    safe_base = Path(raw_filename).name.replace(" ", "_")
+    safe_base = re.sub(r"[^\w\.\-]", "_", safe_base)
+    file_ext = Path(safe_base).suffix.lower()
 
     if file_ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(
@@ -80,10 +84,18 @@ async def upload_telemetry_spreadsheet(
             ),
         )
 
-    # 2. Gravação do arquivo temporário com segurança
+    # 2. Gravação do arquivo temporário com resolução canônica de caminho
     timestamp_prefix = int(time.time())
-    safe_filename = f"{timestamp_prefix}_{original_filename.replace(' ', '_')}"
-    destination_path = UPLOAD_DIR / safe_filename
+    safe_filename = f"{timestamp_prefix}_{safe_base}"
+    destination_path = (UPLOAD_DIR / safe_filename).resolve()
+
+    # Validação canônica estrita para garantir confinamento dentro de UPLOAD_DIR
+    if not str(destination_path).startswith(str(UPLOAD_DIR.resolve())):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Nome de arquivo inválido ou tentativa de path traversal detectada.",
+        )
+    original_filename = safe_base
 
     total_bytes = 0
     try:

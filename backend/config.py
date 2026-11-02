@@ -10,10 +10,28 @@ from typing import List
 # Diretório raiz do projeto
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+import secrets
+import warnings
+
 # Configurações de Segurança e JWT
-SECRET_KEY: str = os.getenv(
-    "JWT_SECRET_KEY", "csg_telemetria_secret_key_super_secure_2026_casagrande_telematics_jwt"
-)
+_env_secret = os.getenv("JWT_SECRET_KEY")
+if _env_secret:
+    SECRET_KEY: str = _env_secret
+elif os.getenv("TESTING", "").lower() in ("true", "1"):
+    SECRET_KEY: str = "csg_telemetria_test_secret_key_fixed_for_test_harness_2026"
+else:
+    # Em produção ou execução padrão sem JWT_SECRET_KEY configurada,
+    # gera um segredo criptográfico aleatório único por processo (256-bit)
+    SECRET_KEY: str = secrets.token_urlsafe(32)
+    warnings.warn(
+        "AVISO DE SEGURANÇA: JWT_SECRET_KEY não foi definida no ambiente. "
+        "Um segredo criptográfico efêmero aleatório foi gerado automaticamente. "
+        "Para manter sessões persistentes entre reinicializações em produção, "
+        "configure a variável de ambiente JWT_SECRET_KEY.",
+        UserWarning,
+        stacklevel=2,
+    )
+
 ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440"))  # 24 horas
 
@@ -39,9 +57,9 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 MAX_UPLOAD_SIZE_BYTES: int = 50 * 1024 * 1024  # 50 MB
 ALLOWED_EXTENSIONS: set = {".xlsx", ".xls", ".csv"}
 
-# CORS
-CORS_ORIGINS: List[str] = [
-    "*",
+# CORS - Origens autorizadas estritas (sem curinga '*' quando allow_credentials=True)
+_custom_cors = [orig.strip() for orig in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",") if orig.strip()]
+CORS_ORIGINS: List[str] = _custom_cors or [
     "http://localhost",
     "http://localhost:3000",
     "http://localhost:5173",

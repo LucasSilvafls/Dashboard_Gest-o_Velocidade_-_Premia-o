@@ -170,30 +170,10 @@ export default function Home() {
 
     const checkInitialSession = async () => {
       try {
-        // 1. Verificar sessão em cache local primeiro (instantâneo)
-        if (typeof window !== 'undefined') {
-          const stored = localStorage.getItem('csg_session_user_v1');
-          if (stored) {
-            try {
-              const parsed = JSON.parse(stored);
-              if (parsed && parsed.username && !isCancelled) {
-                setCurrentUser(parsed);
-                setIsAuthenticated(true);
-                setIsCheckingSession(false);
-                clearTimeout(safetyTimer);
-                if (parsed.primeiroAcesso) {
-                  setIsFirstAccessModalOpen(true);
-                }
-                return;
-              }
-            } catch {}
-          }
-        }
-
-        // 2. Verificar sessão ativa no Supabase Auth com timeout curto de 400ms para nunca travar
+        // 1. Verificar sessão ativa e assinada no Supabase Auth
         const sessionPromise = supabase.auth.getSession().catch(() => ({ data: { session: null } }));
         const timeoutPromise = new Promise<{ data: { session: null } }>((resolve) =>
-          setTimeout(() => resolve({ data: { session: null } }), 400)
+          setTimeout(() => resolve({ data: { session: null } }), 1200)
         );
 
         const res = await Promise.race([sessionPromise, timeoutPromise]);
@@ -222,9 +202,55 @@ export default function Home() {
           if (isDefault) {
             setIsFirstAccessModalOpen(true);
           }
+          return;
         }
+
+        // 2. Verificar sessão ativa emitida pelo Backend FastAPI (/api/auth/me)
+        if (typeof window !== 'undefined') {
+          const backendToken = localStorage.getItem('csg_backend_token');
+          if (backendToken) {
+            try {
+              const meRes = await fetch('/api/auth/me', {
+                headers: { Authorization: `Bearer ${backendToken}` },
+              });
+              if (meRes.ok) {
+                const meData = await meRes.json();
+                if (meData?.username && !isCancelled) {
+                  const userObj: AuthenticatedUser = {
+                    id: `api-user-${meData.id || meData.username}`,
+                    name: meData.nome_completo || meData.username,
+                    username: meData.username,
+                    email: meData.email || `${meData.username}@casagrandetransportes.com.br`,
+                    role: meData.role === 'admin' ? 'Supervisor de Telemetria & Operações' : 'Visualizador CCO',
+                    primeiroAcesso: false,
+                  };
+                  setCurrentUser(userObj);
+                  setIsAuthenticated(true);
+                  try {
+                    localStorage.setItem('csg_session_user_v1', JSON.stringify(userObj));
+                  } catch {}
+                  return;
+                }
+              }
+            } catch {
+              // Backend inacessível ou token expirado
+            }
+          }
+        }
+
+        // 3. Sem sessão criptográfica válida comprovada: limpa qualquer resquício não autenticado
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.removeItem('csg_session_user_v1');
+            localStorage.removeItem('csg_backend_token');
+          } catch {}
+        }
+        setCurrentUser(null);
+        setIsAuthenticated(false);
       } catch (err) {
         console.warn('Aviso: erro ao verificar sessão ativa:', err);
+        setCurrentUser(null);
+        setIsAuthenticated(false);
       } finally {
         clearTimeout(safetyTimer);
         if (!isCancelled) {
@@ -475,6 +501,7 @@ export default function Home() {
     } catch {}
     try {
       localStorage.removeItem('csg_session_user_v1');
+      localStorage.removeItem('csg_backend_token');
     } catch {}
     setCurrentUser(null);
     setIsAuthenticated(false);

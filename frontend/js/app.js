@@ -16,6 +16,16 @@ let sortDirection = 'asc';
 let searchQuery = '';
 let selectedAdminFile = null;
 
+const _esc = typeof escapeHTML === 'function' ? escapeHTML : (s) => {
+    if (s === null || s === undefined) return '';
+    return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#x27;');
+};
+
 // Toast Feedback System
 function showToast(message, type = 'info') {
     const container = document.getElementById('toast-container');
@@ -208,7 +218,7 @@ function updateKPIs() {
     const kUnid = document.getElementById('kpi-unidentified');
 
     if (kMax) kMax.innerHTML = `<span class="text-2xl font-bold font-mono metric-danger tracking-tight">${maxSpeed}</span> <span class="text-xs font-mono font-semibold text-tech-muted">km/h</span>`;
-    if (kDesc) kDesc.innerHTML = `<span class="font-mono font-bold text-main">${maxRec.placa}</span> <span class="text-tech-muted truncate ml-1.5">na ${maxRec.logradouro}</span>`;
+    if (kDesc) kDesc.innerHTML = `<span class="font-mono font-bold text-main">${_esc(maxRec.placa)}</span> <span class="text-tech-muted truncate ml-1.5">na ${_esc(maxRec.logradouro)}</span>`;
 
     const avgDelta = (sumDelta / total).toFixed(1).replace('.', ',');
     if (kAvg) kAvg.innerHTML = `<span class="text-2xl font-bold font-mono metric-warning tracking-tight">+${avgDelta}</span> <span class="text-xs font-mono font-semibold text-tech-muted">km/h</span>`;
@@ -240,15 +250,21 @@ function updateExtremeCasesTable() {
     sorted.forEach(r => {
         const tr = document.createElement('tr');
         const isAnon = r.motorista === 'Sem Identificação';
+        const escPlaca = _esc(r.placa);
+        const escCat = _esc(r.categoria);
+        const escMot = _esc(isAnon ? 'Sem Crachá' : r.motorista);
+        const escLog = _esc(r.logradouro);
+        const escData = _esc(r.data);
+        const escHora = _esc(r.hora);
         tr.innerHTML = `
-            <td class="font-mono text-sub text-xs whitespace-nowrap">${r.data} <span class="text-tech-muted">${r.hora}</span></td>
-            <td class="font-mono font-bold text-main">${r.placa}</td>
-            <td><span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-500 border border-blue-500/20">${r.categoria}</span></td>
-            <td class="${isAnon ? 'metric-warning font-semibold' : 'text-sub'} text-xs truncate max-w-[150px]">${isAnon ? 'Sem Crachá' : r.motorista}</td>
-            <td class="font-mono text-right text-tech-muted">${r.limiar} km/h</td>
-            <td class="font-mono text-right font-bold metric-danger">${r.velocidade} km/h</td>
-            <td class="font-mono text-right font-bold metric-warning">+${r.delta} km/h</td>
-            <td class="text-sub truncate max-w-[160px] text-xs" title="${r.logradouro}">${r.logradouro}</td>
+            <td class="font-mono text-sub text-xs whitespace-nowrap">${escData} <span class="text-tech-muted">${escHora}</span></td>
+            <td class="font-mono font-bold text-main">${escPlaca}</td>
+            <td><span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-500 border border-blue-500/20">${escCat}</span></td>
+            <td class="${isAnon ? 'metric-warning font-semibold' : 'text-sub'} text-xs truncate max-w-[150px]">${escMot}</td>
+            <td class="font-mono text-right text-tech-muted">${Number(r.limiar) || 0} km/h</td>
+            <td class="font-mono text-right font-bold metric-danger">${Number(r.velocidade) || 0} km/h</td>
+            <td class="font-mono text-right font-bold metric-warning">+${Number(r.delta) || 0} km/h</td>
+            <td class="text-sub truncate max-w-[160px] text-xs" title="${escLog}">${escLog}</td>
         `;
         tr.onclick = () => openDetailModal(r.id);
         tr.className = 'cursor-pointer hover:bg-hover transition-colors';
@@ -356,22 +372,31 @@ function renderTable() {
         const tr = document.createElement('tr');
         const riskBadge = getRiskBadgeHTML(r.nivel);
         const isAnon = r.motorista === 'Sem Identificação';
+        const escId = _esc(r.id);
+        const escData = _esc(r.data);
+        const escHora = _esc(r.hora);
+        const escPlaca = _esc(r.placa);
+        const escCat = _esc(r.categoria);
+        const escMot = _esc(isAnon ? 'Sem Crachá' : r.motorista);
+        const escDur = _esc(r.duracao_str);
+        const escLog = _esc(r.logradouro);
+        const escCid = _esc(r.cidade);
 
         tr.innerHTML = `
-            <td class="font-mono text-tech-muted text-[11px]">#${String(r.id).padStart(5, '0')}</td>
-            <td class="font-mono whitespace-nowrap text-sub text-xs">${r.data} <span class="text-tech-muted">${r.hora}</span></td>
-            <td class="font-mono font-bold text-main">${r.placa}</td>
-            <td><span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-500 border border-blue-500/20">${r.categoria}</span></td>
-            <td class="${isAnon ? 'metric-warning font-semibold' : 'text-sub'} text-xs">${isAnon ? 'Sem Crachá' : r.motorista}</td>
-            <td class="font-mono text-right text-tech-muted text-xs">${r.limiar} km/h</td>
-            <td class="font-mono text-right font-bold metric-danger text-xs">${r.velocidade} km/h</td>
-            <td class="font-mono text-right font-bold metric-warning text-xs">+${r.delta} km/h</td>
-            <td class="font-mono text-right metric-brand text-xs">${r.duracao_str}</td>
+            <td class="font-mono text-tech-muted text-[11px]">#${String(escId).padStart(5, '0')}</td>
+            <td class="font-mono whitespace-nowrap text-sub text-xs">${escData} <span class="text-tech-muted">${escHora}</span></td>
+            <td class="font-mono font-bold text-main">${escPlaca}</td>
+            <td><span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-500 border border-blue-500/20">${escCat}</span></td>
+            <td class="${isAnon ? 'metric-warning font-semibold' : 'text-sub'} text-xs">${escMot}</td>
+            <td class="font-mono text-right text-tech-muted text-xs">${Number(r.limiar) || 0} km/h</td>
+            <td class="font-mono text-right font-bold metric-danger text-xs">${Number(r.velocidade) || 0} km/h</td>
+            <td class="font-mono text-right font-bold metric-warning text-xs">+${Number(r.delta) || 0} km/h</td>
+            <td class="font-mono text-right metric-brand text-xs">${escDur}</td>
             <td>${riskBadge}</td>
-            <td class="text-sub truncate max-w-[150px] text-xs" title="${r.logradouro}">${r.logradouro}</td>
-            <td class="text-tech-muted text-xs">${r.cidade}</td>
+            <td class="text-sub truncate max-w-[150px] text-xs" title="${escLog}">${escLog}</td>
+            <td class="text-tech-muted text-xs">${escCid}</td>
             <td class="text-center">
-                <button type="button" onclick="openDetailModal(${r.id})" class="btn-industrial px-2 py-1 text-[11px] font-semibold" title="Ver ficha da ocorrência">
+                <button type="button" onclick="openDetailModal(${Number(r.id)})" class="btn-industrial px-2 py-1 text-[11px] font-semibold" title="Ver ficha da ocorrência">
                     Ver
                 </button>
             </td>

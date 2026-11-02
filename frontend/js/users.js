@@ -1,7 +1,7 @@
 /**
  * ============================================================================
  * GESTÃO DE USUÁRIOS E CONTROLE DE ACESSO (RBAC) - PAINEL ADMINISTRATIVO
- * Casagrande Locações e Transportes • Unidade Operacional CSG
+ * Casagrande Locações e Transportes
  * ============================================================================
  */
 
@@ -48,18 +48,24 @@ async function fetchUsersList() {
         tbody.innerHTML = users.map(u => {
             const isAdmin = u.role === 'admin';
             const dateStr = u.created_at ? new Date(u.created_at).toLocaleDateString('pt-BR') : '-';
+            const esc = typeof escapeHTML === 'function' ? escapeHTML : (s) => String(s || '');
+            const safeId = esc(u.id);
+            const safeUsername = esc(u.username);
+            const safeNome = esc(u.nome_completo || '-');
+            const safeEmail = esc(u.email || '-');
+            const safeRole = esc(u.role ? u.role.toUpperCase() : '');
             return `
                 <tr>
-                    <td class="font-mono font-bold text-main">#${u.id}</td>
-                    <td class="font-mono text-main font-semibold">${u.username}</td>
-                    <td class="text-sub">${u.nome_completo || '-'}</td>
-                    <td class="text-tech-muted font-mono text-[11px]">${u.email || '-'}</td>
+                    <td class="font-mono font-bold text-main">#${safeId}</td>
+                    <td class="font-mono text-main font-semibold">${safeUsername}</td>
+                    <td class="text-sub">${safeNome}</td>
+                    <td class="text-tech-muted font-mono text-[11px]">${safeEmail}</td>
                     <td>
                         <span class="risk-badge ${isAdmin ? 'risk-badge-low' : 'risk-badge-med'}">
-                            ${u.role.toUpperCase()}
+                            ${safeRole}
                         </span>
                     </td>
-                    <td class="font-mono text-tech-muted text-[11px]">${dateStr}</td>
+                    <td class="font-mono text-tech-muted text-[11px]">${esc(dateStr)}</td>
                 </tr>
             `;
         }).join('');

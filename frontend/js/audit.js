@@ -70,16 +70,20 @@ function updateAuditTab() {
                 </tr>
             `;
         } else {
+            const esc = typeof escapeHTML === 'function' ? escapeHTML : (s) => String(s || '');
             tbody.innerHTML = topPlacas.map((item, idx) => {
                 const rodoviasStr = Array.from(item.rodovias).slice(0, 2).join(', ') || 'N/D';
+                const escPlaca = esc(item.placa);
+                const escCat = esc(item.categoria);
+                const escRod = esc(rodoviasStr);
                 return `
                     <tr>
                         <td class="font-mono font-bold text-main">#${idx + 1}</td>
-                        <td class="font-mono font-bold text-main">${item.placa}</td>
-                        <td class="text-sub">${item.categoria}</td>
-                        <td class="font-mono font-bold metric-warning">${item.count.toLocaleString('pt-BR')}</td>
-                        <td class="font-mono font-bold metric-danger">${item.maxSpeed.toFixed(0)} km/h</td>
-                        <td class="text-tech-muted text-xs truncate max-w-[160px]" title="${rodoviasStr}">${rodoviasStr}</td>
+                        <td class="font-mono font-bold text-main">${escPlaca}</td>
+                        <td class="text-sub">${escCat}</td>
+                        <td class="font-mono font-bold metric-warning">${Number(item.count).toLocaleString('pt-BR')}</td>
+                        <td class="font-mono font-bold metric-danger">${Number(item.maxSpeed).toFixed(0)} km/h</td>
+                        <td class="text-tech-muted text-xs truncate max-w-[160px]" title="${escRod}">${escRod}</td>
                     </tr>
                 `;
             }).join('');
