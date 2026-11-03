@@ -118,11 +118,11 @@ export function getCompetenceFromParts(day: number, month1To12: number, year: nu
 }
 
 /**
- * Retorna a competência para uma string de data (DD/MM/AAAA ou AAAA-MM-DD).
+ * Retorna a competência para uma string de data (DD/MM/AAAA, AAAA-MM-DD ou serial do Excel).
  */
 export function getCompetenceForDate(dateStr: string | undefined | null): CompetenceInfo | null {
   if (!dateStr) return null;
-  const clean = dateStr.trim().split(' ')[0];
+  const clean = String(dateStr).trim().split(' ')[0].split('T')[0];
   if (clean.includes('/')) {
     const parts = clean.split('/');
     if (parts.length === 3) {
@@ -142,6 +142,13 @@ export function getCompetenceForDate(dateStr: string | undefined | null): Compet
       if (!isNaN(day) && !isNaN(month) && !isNaN(year) && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
         return getCompetenceFromParts(day, month, year);
       }
+    }
+  } else if (/^\d+(\.\d+)?$/.test(clean)) {
+    const serial = parseFloat(clean);
+    if (serial >= 20000 && serial <= 90000) {
+      const days = serial - Math.floor(serial) > 0.999 ? Math.round(serial) : Math.floor(serial);
+      const dt = new Date(Date.UTC(1899, 11, 30) + days * 86400000);
+      return getCompetenceFromParts(dt.getUTCDate(), dt.getUTCMonth() + 1, dt.getUTCFullYear());
     }
   }
   return null;
@@ -210,11 +217,11 @@ export function getAvailableCompetences(incidents: Incident[]): AvailableCompete
 }
 
 /**
- * Parses a DD/MM/YYYY date string into a UTC timestamp (ms) for reliable day comparison.
+ * Parses a DD/MM/YYYY, YYYY-MM-DD, or Excel serial date string into a UTC timestamp (ms) for reliable day comparison.
  */
 export function parseDateBR(dateStr: string | undefined | null): number | null {
   if (!dateStr) return null;
-  const clean = dateStr.trim().split(' ')[0];
+  const clean = String(dateStr).trim().split(' ')[0].split('T')[0];
   if (clean.includes('/')) {
     const parts = clean.split('/');
     if (parts.length === 3) {
@@ -234,6 +241,12 @@ export function parseDateBR(dateStr: string | undefined | null): number | null {
       if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
         return Date.UTC(year, month, day);
       }
+    }
+  } else if (/^\d+(\.\d+)?$/.test(clean)) {
+    const serial = parseFloat(clean);
+    if (serial >= 20000 && serial <= 90000) {
+      const days = serial - Math.floor(serial) > 0.999 ? Math.round(serial) : Math.floor(serial);
+      return Date.UTC(1899, 11, 30) + days * 86400000;
     }
   }
   return null;

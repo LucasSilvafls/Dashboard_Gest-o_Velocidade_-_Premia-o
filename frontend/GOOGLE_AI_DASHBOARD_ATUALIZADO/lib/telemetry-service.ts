@@ -34,16 +34,372 @@ export interface HourlyDistributionItem {
 }
 
 /**
- * Formata data no padrão brasileiro DD/MM/AAAA
+ * Converte qualquer valor de data vindo de planilha (Serial do Excel ex: 46033,
+ * objeto Date, DD/MM/AAAA, DD-MM-AAAA ou AAAA-MM-DD) para o padrão ISO 'YYYY-MM-DD'
+ * exigido pelo tipo DATE do PostgreSQL/Supabase.
+ *
+ * @param raw Valor bruto da célula de data
+ * @param swapSerialDayMonth Se true, corrige inversão DD/MM <-> MM/DD gerada pelo Excel em datas com dia <= 12
  */
-function formatDateBR(dateStr: string | null): string {
-  if (!dateStr) return '';
-  if (dateStr.includes('/')) return dateStr;
-  const parts = dateStr.split('-');
+export function normalizeSpreadsheetDate(raw: any, swapSerialDayMonth = false): string {
+  const todayISO = () => new Date().toISOString().split('T')[0];
+  if (raw === null || raw === undefined || raw === '') return todayISO();
+
+  if (raw instanceof Date && !isNaN(raw.getTime())) {
+    const y = raw.getUTCFullYear();
+    let m = raw.getUTCMonth() + 1;
+    let d = raw.getUTCDate();
+    if (swapSerialDayMonth && m <= 12 && d <= 12) {
+      const tmp = m;
+      m = d;
+      d = tmp;
+    }
+    return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+  }
+
+  // Trata número de série do Excel (ex: 46033 ou "46033" ou 46033.604166)
+  if (typeof raw === 'number' || (typeof raw === 'string' && /^\d+(\.\d+)?$/.test(raw.trim()))) {
+    const serial = typeof raw === 'number' ? raw : parseFloat(raw.trim());
+    if (!isNaN(serial) && serial >= 10000 && serial <= 99999) {
+      // Se a fração decimal for > 0.999 (deslocamento de fuso de poucos segundos antes da meia-noite), arredonda para o dia
+      const days = serial - Math.floor(serial) > 0.999 ? Math.round(serial) : Math.floor(serial);
+      const dt = new Date(Date.UTC(1899, 11, 30) + days * 86400000);
+      const y = dt.getUTCFullYear();
+      let m = dt.getUTCMonth() + 1;
+      let d = dt.getUTCDate();
+      if (swapSerialDayMonth && m <= 12 && d <= 12) {
+        const tmp = m;
+        m = d;
+        d = tmp;
+      }
+      if (y >= 1970 && y <= 2100 && m >= 1 && m <= 12 && d >= 1 && d <= 31) {
+        return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      }
+    }
+  }
+
+  let s = String(raw).trim();
+  if (!s || s === '-' || s.toLowerCase() === 'nan' || s.toLowerCase() === 'null') {
+    return todayISO();
+  }
+
+  // Remove horário acoplado se houver (ex: "25/10/2026 16:20:00" ou "2026-10-25T16:20:00")
+  if (s.includes(' ')) s = s.split(' ')[0].trim();
+  if (s.includes('T')) s = s.split('T')[0].trim();
+
+  // Formato DD/MM/YYYY, DD-MM-YYYY ou DD.MM.YYYY
+  const mDmy = s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})$/);
+  if (mDmy) {
+    const p1 = parseInt(mDmy[1], 10);
+    const p2 = parseInt(mDmy[2], 10);
+    let yr = parseInt(mDmy[3], 10);
+    if (yr < 100) yr += yr >= 70 ? 1900 : 2000;
+
+    let day = p1;
+    let month = p2;
+    if (p1 > 12 && p2 <= 12) {
+      day = p1;
+      month = p2;
+    } else if (p2 > 12 && p1 <= 12) {
+      day = p2;
+      month = p1;
+    }
+
+    if (yr >= 1970 && yr <= 2100 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+      return `${yr}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    }
+  }
+
+  // Formato ISO YYYY-MM-DD ou YYYY/MM/DD
+  const mYmd = s.match(/^(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})$/);
+  if (mYmd) {
+    const yr = parseInt(mYmd[1], 10);
+    let month = parseInt(mYmd[2], 10);
+    let day = parseInt(mYmd[3], 10);
+    if (month > 12 && day <= 12) {
+      const tmp = month;
+      month = day;
+      day = tmp;
+    }
+    if (yr >= 1970 && yr <= 2100 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+      return `${yr}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    }
+  }
+
+  return todayISO();
+}
+
+/**
+ * Detecta automaticamente se valores seriais de data do Excel em uma coluna sofreram inversão
+ * de DD/MM/AAAA para MM/DD/AAAA (ex: "01/11/2026" salvo pelo Excel como 11 de Janeiro = 46033
+ * dentro de uma planilha de Outubro/Novembro).
+ */
+export function detectExcelSerialDateSwap(rawDateValues: any[]): boolean {
+  const expectedMonths = new Set<number>();
+  const serialCandidates: Array<{ m: number; d: number }> = [];
+
+  for (const val of rawDateValues) {
+    if (val === null || val === undefined || val === '') continue;
+
+    if (typeof val === 'number' || (typeof val === 'string' && /^\d+(\.\d+)?$/.test(val.trim()))) {
+      const serial = typeof val === 'number' ? val : parseFloat(val.trim());
+      if (!isNaN(serial) && serial >= 10000 && serial <= 99999) {
+        const days = serial - Math.floor(serial) > 0.999 ? Math.round(serial) : Math.floor(serial);
+        const dt = new Date(Date.UTC(1899, 11, 30) + days * 86400000);
+        const m = dt.getUTCMonth() + 1;
+        const d = dt.getUTCDate();
+        if (m <= 12 && d <= 12 && m !== d) {
+          serialCandidates.push({ m, d });
+        }
+      }
+      continue;
+    }
+
+    const s = String(val).trim().split(' ')[0].split('T')[0];
+    const mDmy = s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})$/);
+    if (mDmy) {
+      const p1 = parseInt(mDmy[1], 10);
+      const p2 = parseInt(mDmy[2], 10);
+      // Quando o dia > 12 (ex: 26/10/2026), o mês é inequivocamente p2 (10)
+      if (p1 > 12 && p2 >= 1 && p2 <= 12) {
+        expectedMonths.add(p2);
+        expectedMonths.add(p2 === 12 ? 1 : p2 + 1);
+        expectedMonths.add(p2 === 1 ? 12 : p2 - 1);
+      }
+    }
+  }
+
+  if (serialCandidates.length === 0) return false;
+
+  // Caso 1: Planilha mista com datas texto inequívocas (ex: 26/10/2026) + datas seriais onde 'd' bate com o mês esperado e 'm' não
+  if (expectedMonths.size > 0) {
+    let swappedMatches = 0;
+    let normalMatches = 0;
+    for (const c of serialCandidates) {
+      if (!expectedMonths.has(c.m) && expectedMonths.has(c.d)) swappedMatches++;
+      if (expectedMonths.has(c.m)) normalMatches++;
+    }
+    if (swappedMatches > normalMatches && swappedMatches > 0) {
+      return true;
+    }
+  }
+
+  // Caso 2: Planilha apenas com seriais onde o suposto 'dia' (<=12) fica fixo enquanto o suposto 'mês' varia (ex: 01/11, 02/11, 03/11 lidos como Jan 11, Fev 11, Mar 11)
+  const uniqueM = new Set(serialCandidates.map((c) => c.m));
+  const uniqueD = new Set(serialCandidates.map((c) => c.d));
+  if (expectedMonths.size === 0 && uniqueD.size === 1 && uniqueM.size >= 2) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Converte horário de planilha (fração decimal de dia do Excel ex: 0.680555, objeto Date
+ * ou string 'HH:MM:SS' / 'HH:MM') para string 'HH:MM:SS' e hora inteira (0..23).
+ */
+export function normalizeSpreadsheetTime(
+  rawHora: any,
+  rawDataFallback?: any
+): { timeStr: string; hour: number } {
+  const parseFromVal = (v: any): { timeStr: string; hour: number } | null => {
+    if (v === null || v === undefined || v === '') return null;
+
+    if (v instanceof Date && !isNaN(v.getTime())) {
+      const h = v.getUTCHours();
+      const m = v.getUTCMinutes();
+      const s = v.getUTCSeconds();
+      return {
+        timeStr: `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`,
+        hour: h,
+      };
+    }
+
+    if (typeof v === 'number' || (typeof v === 'string' && /^\d+(\.\d+)?$/.test(v.trim()))) {
+      const num = typeof v === 'number' ? v : parseFloat(v.trim());
+      if (!isNaN(num) && num >= 0) {
+        const frac = num >= 1 ? num - Math.floor(num) : num;
+        if (num < 1 || frac > 0.0001) {
+          const totalSec = Math.round(frac * 86400) % 86400;
+          const h = Math.floor(totalSec / 3600);
+          const m = Math.floor((totalSec % 3600) / 60);
+          const s = totalSec % 60;
+          return {
+            timeStr: `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`,
+            hour: h,
+          };
+        }
+      }
+    }
+
+    const str = String(v).trim();
+    if (!str || str === '-' || str.toLowerCase() === 'nan') return null;
+
+    // Extrai padrão HH:MM:SS ou HH:MM (mesmo se vier junto com data ex: "25/10/2026 16:20:00")
+    const timeMatch = str.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+    if (timeMatch) {
+      const h = Math.min(23, Math.max(0, parseInt(timeMatch[1], 10) || 0));
+      const m = Math.min(59, Math.max(0, parseInt(timeMatch[2], 10) || 0));
+      const s = Math.min(59, Math.max(0, parseInt(timeMatch[3] || '0', 10) || 0));
+      return {
+        timeStr: `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`,
+        hour: h,
+      };
+    }
+
+    return null;
+  };
+
+  return (
+    parseFromVal(rawHora) ||
+    parseFromVal(rawDataFallback) || {
+      timeStr: '12:00:00',
+      hour: 12,
+    }
+  );
+}
+
+/**
+ * Converte duração de planilha (fração de dia do Excel, segundos inteiros ou 'HH:MM:SS')
+ * em { duracaoStr: 'HH:MM:SS', duracaoSec: number }.
+ */
+export function normalizeSpreadsheetDuration(rawDur: any): { duracaoStr: string; duracaoSec: number } {
+  const formatSec = (sec: number) => {
+    const cleanSec = Math.max(0, Math.round(sec));
+    const h = Math.floor(cleanSec / 3600);
+    const m = Math.floor((cleanSec % 3600) / 60);
+    const s = cleanSec % 60;
+    return {
+      duracaoStr: `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`,
+      duracaoSec: cleanSec,
+    };
+  };
+
+  if (rawDur === null || rawDur === undefined || rawDur === '') {
+    return { duracaoStr: '00:00:00', duracaoSec: 0 };
+  }
+
+  if (typeof rawDur === 'number') {
+    if (rawDur > 0 && rawDur < 1) {
+      return formatSec(rawDur * 86400);
+    }
+    return formatSec(rawDur);
+  }
+
+  const s = String(rawDur).trim();
+  if (!s || s === '-' || s.toLowerCase() === 'nan') {
+    return { duracaoStr: '00:00:00', duracaoSec: 0 };
+  }
+
+  if (s.includes(':')) {
+    const parts = s.split(':').map((p) => parseFloat(p.replace(/[^\d\.]/g, '')) || 0);
+    if (parts.length === 3) {
+      return formatSec(parts[0] * 3600 + parts[1] * 60 + parts[2]);
+    }
+    if (parts.length === 2) {
+      return formatSec(parts[0] * 60 + parts[1]);
+    }
+  }
+
+  const numClean = s.replace(',', '.').replace(/[^\d\.]/g, '');
+  if (numClean) {
+    const n = parseFloat(numClean);
+    if (!isNaN(n)) {
+      if (n > 0 && n < 1) return formatSec(n * 86400);
+      return formatSec(n);
+    }
+  }
+
+  return { duracaoStr: '00:00:00', duracaoSec: 0 };
+}
+
+/**
+ * Extrai número limpo de células com unidades ('98 km/h', '24,33 Km/h/s', '-')
+ */
+export function parseSpreadsheetNumber(raw: any, fallback = 0): number {
+  if (raw === null || raw === undefined || raw === '') return fallback;
+  if (typeof raw === 'number') return Number.isFinite(raw) ? raw : fallback;
+  const s = String(raw)
+    .replace(/km\/h\/s|km\/h|kmh|rpm|segundos|seg|s|g|[%+]/gi, '')
+    .replace(',', '.')
+    .trim();
+  if (!s || s === '-' || s.toLowerCase() === 'nan') return fallback;
+  const n = parseFloat(s);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+/**
+ * Normaliza coordenadas geográficas (suporta pontos suprimidos de exportação ex: '-21.503.626' -> -21.503626)
+ */
+export function parseSpreadsheetCoord(raw: any, isLat = true): number | null {
+  if (raw === null || raw === undefined || raw === '') return null;
+  const maxBound = isLat ? 90 : 180;
+
+  if (typeof raw === 'number') {
+    if (Number.isFinite(raw) && raw !== 0 && Math.abs(raw) <= maxBound) {
+      return Number(raw.toFixed(6));
+    }
+    raw = String(raw);
+  }
+
+  const s = String(raw).trim();
+  if (!s || s === '-' || s === '0' || s === '0.0' || s.toLowerCase() === 'nan') return null;
+
+  const negative = s.startsWith('-');
+  const singleDot = s.replace(',', '.');
+  if ((singleDot.match(/\./g) || []).length === 1) {
+    const val = parseFloat(singleDot);
+    if (Number.isFinite(val) && val !== 0 && Math.abs(val) <= maxBound) {
+      return Number(val.toFixed(6));
+    }
+  }
+
+  const digits = s.replace(/[^\d]/g, '');
+  if (digits.length >= 2) {
+    const reconstructed = parseFloat(`${digits.slice(0, 2)}.${digits.slice(2)}`);
+    const finalVal = negative ? -reconstructed : reconstructed;
+    if (Number.isFinite(finalVal) && Math.abs(finalVal) <= maxBound) {
+      return Number(finalVal.toFixed(6));
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Padroniza o tipo de alerta para o formato canônico com underscores (ex: 'EXCESSO_VELOCIDADE')
+ */
+export function normalizeAlertType(rawTipo: any, limiar = 80): string {
+  if (rawTipo !== null && rawTipo !== undefined) {
+    const clean = String(rawTipo)
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+      .toUpperCase()
+      .replace(/\s+/g, '_');
+
+    if (clean && clean !== '-' && clean !== 'NAN') {
+      if (clean === 'EXCESSO_DE_VELOCIDADE') return 'EXCESSO_VELOCIDADE';
+      if (clean === 'EXCESSO_DE_VELOCIDADE_POR_VIA') return 'EXCESSO_VELOCIDADE_POR_VIA';
+      return clean;
+    }
+  }
+  return limiar < 80 ? 'EXCESSO_VELOCIDADE_POR_VIA' : 'EXCESSO_VELOCIDADE';
+}
+
+/**
+ * Formata data no padrão brasileiro DD/MM/AAAA (suporta ISO YYYY-MM-DD, DD/MM/AAAA e serial Excel)
+ */
+function formatDateBR(dateStr: string | number | null | undefined): string {
+  if (dateStr === null || dateStr === undefined || dateStr === '') return '';
+  const s = String(dateStr).trim();
+  if (s.includes('/')) return s.split(' ')[0];
+  const iso = normalizeSpreadsheetDate(s);
+  const parts = iso.split('-');
   if (parts.length === 3) {
     return `${parts[2]}/${parts[1]}/${parts[0]}`;
   }
-  return dateStr;
+  return s;
 }
 
 /**
@@ -533,7 +889,7 @@ export async function fetchDriverComplianceScores(): Promise<DriverScore[]> {
 /**
  * Consulta todos os incidentes de excesso de velocidade do ciclo (mescla base histórica e eventos recém-ingeridos)
  */
-export async function fetchIncidents(limit = 15000): Promise<Incident[]> {
+export async function fetchIncidents(limit = 50000): Promise<Incident[]> {
   try {
     // Garante que o cadastro de veículos da frota está sincronizado para resolução precisa de categorias por placa
     await fetchFleetVehicles().catch(() => {});
@@ -553,19 +909,31 @@ export async function fetchIncidents(limit = 15000): Promise<Incident[]> {
       }
     }
 
-    // Consulta eventos novos inseridos no Supabase pós-migração inicial (id > 16068)
+    // Consulta eventos novos inseridos no Supabase pós-migração inicial (id > 16068) com paginação
     let newEvents: any[] = [];
     try {
-      const { data, error } = await supabase
-        .from('eventos_telemetria')
-        .select('*')
-        .gt('id', 16068)
-        .in('tipo', ['EXCESSO_VELOCIDADE', 'EXCESSO_VELOCIDADE_POR_VIA'])
-        .order('data_evento', { ascending: false })
-        .order('hora_evento', { ascending: false });
+      const pageSize = 1000;
+      let from = 0;
+      const maxPages = 30;
+      for (let page = 0; page < maxPages; page++) {
+        const { data, error } = await supabase
+          .from('eventos_telemetria')
+          .select('*')
+          .gt('id', 16068)
+          .in('tipo', [
+            'EXCESSO_VELOCIDADE',
+            'EXCESSO_VELOCIDADE_POR_VIA',
+            'EXCESSO DE VELOCIDADE',
+            'EXCESSO DE VELOCIDADE POR VIA',
+          ])
+          .order('data_evento', { ascending: false })
+          .order('hora_evento', { ascending: false })
+          .range(from, from + pageSize - 1);
 
-      if (!error && data && data.length > 0) {
-        newEvents = data;
+        if (error || !data || data.length === 0) break;
+        newEvents.push(...data);
+        if (data.length < pageSize) break;
+        from += pageSize;
       }
     } catch (e) {
       console.warn('Aviso: falha ao consultar novos eventos do Supabase:', e);
@@ -577,7 +945,7 @@ export async function fetchIncidents(limit = 15000): Promise<Incident[]> {
 
     // Chave de unicidade para mesclagem limpa
     const keyOf = (r: any) =>
-      `${cleanPlate(r.placa) || ''}_${r.data || r.data_evento || ''}_${r.hora || r.hora_evento || ''}_${r.velocidade || r.valor || ''}`;
+      `${cleanPlate(r.placa) || ''}_${formatDateBR(r.data || r.data_evento)}_${r.hora || r.hora_evento || ''}_${r.velocidade ?? r.valor ?? ''}`;
 
     const map = new Map<string, any>();
     // Novos eventos do Supabase entram primeiro com prioridade
@@ -682,7 +1050,8 @@ export async function fetchUploadAuditLogs(): Promise<AuditLog[]> {
 
 /**
  * Envia um lote de eventos higienizados para o Supabase garantindo que toda placa
- * esteja vinculada à sua categoria e prefixo respectivo antes da gravação.
+ * esteja vinculada à sua categoria e prefixo respectivo e que datas/horários/números
+ * estejam estritamente tipados antes da gravação no PostgreSQL.
  */
 export async function uploadSpreadsheetEvents(
   fileName: string,
@@ -698,18 +1067,94 @@ export async function uploadSpreadsheetEvents(
     let insertedCount = 0;
     let duplicateCount = 0;
 
-    // Higienização prévia de integridade: vincula cada evento à categoria real de sua placa
-    const sanitizedEvents = events.map((ev) => {
+    // Detecta se datas seriais do Excel sofreram inversão DD/MM <-> MM/DD no conjunto recebido
+    const swapSerial = detectExcelSerialDateSwap(events.map((ev) => ev.data_evento ?? ev.data));
+
+    // Higienização prévia de integridade e deduplicação interna do arquivo por hash_dedup
+    const uniqueEventsMap = new Map<string, any>();
+
+    for (const ev of events) {
       const cp = cleanPlate(ev.placa);
-      const cat = resolveVehicleCategory(cp, ev.categoria);
-      const pref = ev.prefixo || fleetRegistryMap.get(cp)?.prefixo || KNOWN_FLEET_VEHICLES[cp]?.prefix || null;
-      return {
-        ...ev,
-        placa: cp || ev.placa,
-        categoria: cat,
+      const placa = cp || String(ev.placa || 'SEM-PLACA').trim().toUpperCase();
+      if (!placa || placa === 'SEM-PLACA' || placa === '-') continue;
+
+      const cat = resolveVehicleCategory(placa, ev.categoria);
+      const pref = ev.prefixo || fleetRegistryMap.get(placa)?.prefixo || KNOWN_FLEET_VEHICLES[placa]?.prefix || null;
+
+      const dataEvento = normalizeSpreadsheetDate(ev.data_evento ?? ev.data, swapSerial);
+      const { timeStr: horaEvento, hour: parsedHour } = normalizeSpreadsheetTime(
+        ev.hora_evento ?? ev.hora,
+        ev.data_evento ?? ev.data
+      );
+      const { duracaoStr, duracaoSec } = normalizeSpreadsheetDuration(
+        ev.duracao_str ?? ev.duracao_sec ?? ev.duracao
+      );
+
+      const limiar = parseSpreadsheetNumber(ev.limiar, 80);
+      const velocidade = parseSpreadsheetNumber(ev.velocidade, 0);
+      const delta =
+        ev.delta !== undefined
+          ? Math.max(0, parseSpreadsheetNumber(ev.delta, Math.max(0, velocidade - limiar)))
+          : Math.max(0, Number((velocidade - limiar).toFixed(1)));
+      const pct =
+        ev.pct !== undefined
+          ? parseSpreadsheetNumber(ev.pct, 0)
+          : limiar > 0
+            ? Number(((delta / limiar) * 100).toFixed(1))
+            : 0;
+
+      const tipo = normalizeAlertType(ev.tipo, limiar);
+      const nivel = ev.nivel || (delta > 20 ? 'ALTO' : delta > 10 ? 'MEDIO' : 'BAIXO');
+      const hour = typeof ev.hour === 'number' && !isNaN(ev.hour) ? ev.hour : parsedHour;
+
+      const hashDedup = `${placa}_${dataEvento}_${horaEvento}_${velocidade}_${tipo}`;
+
+      const sanitizedRecord: Record<string, any> = {
+        hash_dedup: hashDedup,
+        placa,
         prefixo: pref,
+        categoria: cat,
+        motorista: ev.motorista || 'Sem Identificação',
+        cpf: ev.cpf || '-',
+        uo: ev.uo || 'CASAGRANDE',
+        tipo,
+        nivel,
+        limiar,
+        velocidade,
+        delta,
+        pct,
+        duracao_str: duracaoStr,
+        duracao_sec: duracaoSec,
+        logradouro: ev.logradouro || 'Não Informado',
+        cidade: ev.cidade || 'Não Informado',
+        estado: ev.estado || 'MS',
+        data_evento: dataEvento,
+        hora_evento: horaEvento,
+        hour,
+        status: ev.status || 'NOVO',
       };
-    });
+
+      const lat = parseSpreadsheetCoord(ev.lat ?? ev.latitude, true);
+      const lng = parseSpreadsheetCoord(ev.lng ?? ev.longitude, false);
+      if (lat !== null) sanitizedRecord.lat = lat;
+      if (lng !== null) sanitizedRecord.lng = lng;
+
+      if (uniqueEventsMap.has(hashDedup)) {
+        duplicateCount++;
+      } else {
+        uniqueEventsMap.set(hashDedup, sanitizedRecord);
+      }
+    }
+
+    const sanitizedEvents = Array.from(uniqueEventsMap.values());
+    if (sanitizedEvents.length === 0) {
+      return {
+        success: false,
+        inserted: 0,
+        duplicates: duplicateCount,
+        error: 'Nenhum evento válido com placa e data foi encontrado na planilha.',
+      };
+    }
 
     for (let i = 0; i < sanitizedEvents.length; i += batchSize) {
       const batch = sanitizedEvents.slice(i, i + batchSize);

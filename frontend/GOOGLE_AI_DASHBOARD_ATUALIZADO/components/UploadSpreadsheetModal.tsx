@@ -8,7 +8,13 @@ import {
   cleanPlate,
   saveFleetVehicle,
   fetchFleetVehicles,
-  normalizeVehicleCategory,
+  normalizeSpreadsheetDate,
+  detectExcelSerialDateSwap,
+  normalizeSpreadsheetTime,
+  normalizeSpreadsheetDuration,
+  parseSpreadsheetNumber,
+  parseSpreadsheetCoord,
+  normalizeAlertType,
 } from '@/lib/telemetry-service';
 import { Upload, FileSpreadsheet, CheckCircle2, AlertTriangle, X, ShieldAlert, Loader2, Sparkles } from 'lucide-react';
 import { useTheme } from '@/lib/ThemeContext';
@@ -82,9 +88,20 @@ export default function UploadSpreadsheetModal({
   const fixText = (val: any): string => {
     if (val === null || val === undefined) return '';
     let s = String(val).trim();
+    if (s === '-' || s.toLowerCase() === 'nan' || s.toLowerCase() === 'null') return '';
     s = s.replace(/\ufffd/g, 'Ç').replace(/CAAMBA/gi, 'CAÇAMBA').replace(/CA\?AMBA/gi, 'CAÇAMBA');
     s = s.replace(/ONIBUS/gi, 'ÔNIBUS');
     return s;
+  };
+
+  const normalizeKey = (key: string): string => {
+    return key
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^\w\s]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toUpperCase();
   };
 
   const processFile = async (file: File) => {
@@ -96,14 +113,55 @@ export default function UploadSpreadsheetModal({
       await fetchFleetVehicles().catch(() => {});
 
       const buffer = await file.arrayBuffer();
-      const workbook = XLSX.read(buffer, { type: 'array' });
+      const isCsv = /\.(csv|txt)$/i.test(file.name);
+      // Para CSV, raw: true impede que o SheetJS converta datas brasileiras DD/MM/AAAA em floats americanos MM/DD/AAAA
+      const workbook = XLSX.read(buffer, { type: 'array', raw: isCsv });
       const firstSheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[firstSheetName];
-      const rawData = XLSX.utils.sheet_to_json<Record<string, any>>(worksheet, { defval: '' });
+
+      let rawData = XLSX.utils.sheet_to_json<Record<string, any>>(worksheet, { defval: '' });
+
+      // Caso a planilha tenha linhas de título/metadados acima do cabeçalho real, localiza a linha que contém PLACA/VEICULO
+      if (rawData.length > 0) {
+        const firstKeys = Object.keys(rawData[0]).map(normalizeKey).join(' ');
+        if (!firstKeys.includes('PLACA') && !firstKeys.includes('VEICULO')) {
+          const matrix = XLSX.utils.sheet_to_json<any[]>(worksheet, { header: 1, defval: '' });
+          let headerRowIndex = -1;
+          for (let r = 0; r < Math.min(10, matrix.length); r++) {
+            const rowText = (matrix[r] || []).map((c) => normalizeKey(String(c ?? ''))).join(' ');
+            if (rowText.includes('PLACA') || rowText.includes('VEICULO')) {
+              headerRowIndex = r;
+              break;
+            }
+          }
+          if (headerRowIndex >= 0) {
+            rawData = XLSX.utils.sheet_to_json<Record<string, any>>(worksheet, {
+              range: headerRowIndex,
+              defval: '',
+            });
+          }
+        }
+      }
 
       if (!rawData || rawData.length === 0) {
         throw new Error('A planilha selecionada está vazia ou não possui linhas válidas.');
       }
+
+      // Normaliza as chaves de todas as linhas removendo acentos para busca consistente
+      const normalizedRows = rawData.map((row) => {
+        const norm: Record<string, any> = {};
+        for (const [k, v] of Object.entries(row)) {
+          norm[k.trim().toUpperCase()] = v;
+          norm[normalizeKey(k)] = v;
+        }
+        return norm;
+      });
+
+      // Pré-inspeciona a coluna de data para detectar eventual inversão DD/MM <-> MM/DD em números seriais do Excel (ex: 46033)
+      const allRawDates = normalizedRows.map(
+        (norm) => norm['DATA'] ?? norm['DATA_EVENTO'] ?? norm['DATA EVENTO'] ?? norm['DATA DO EVENTO']
+      );
+      const swapSerialDates = detectExcelSerialDateSwap(allRawDates);
 
       const records: any[] = [];
       const platesSet = new Set<string>();
@@ -114,52 +172,76 @@ export default function UploadSpreadsheetModal({
       const catDistribution: Record<string, number> = {};
       const unmappedPlatesCount = new Map<string, number>();
 
-      for (const row of rawData) {
-        // Normaliza chaves da planilha para maiúsculo
-        const norm: Record<string, any> = {};
-        for (const [k, v] of Object.entries(row)) {
-          norm[k.trim().toUpperCase()] = v;
-        }
+      for (const norm of normalizedRows) {
+        const rawPlate = fixText(
+          norm['PLACA'] || norm['VEICULO'] || norm['VEÍCULO'] || norm['PLACA VEICULO'] || norm['PLACA VEÍCULO'] || ''
+        );
+        const placa = cleanPlate(rawPlate);
+        // Ignora linhas em branco da planilha (sem placa)
+        if (!placa || placa === 'SEMPLACA') continue;
+        platesSet.add(placa);
 
-        const rawPlate = fixText(norm['PLACA'] || norm['VEICULO'] || norm['VEÍCULO'] || norm['PLACA VEÍCULO'] || 'SEM-PLACA');
-        const placa = cleanPlate(rawPlate) || 'SEM-PLACA';
-        if (placa && placa !== 'SEM-PLACA') platesSet.add(placa);
-
-        const motoristaRaw = fixText(norm['MOTORISTA'] || norm['CONDUTOR'] || norm['NOME'] || 'Sem Identificação');
-        const hasDriver = motoristaRaw !== '' && !motoristaRaw.toLowerCase().includes('sem ident') && !motoristaRaw.toLowerCase().includes('não ident');
+        const motoristaRaw = fixText(
+          norm['MOTORISTA'] ||
+            norm['CONDUTOR'] ||
+            norm['NOME'] ||
+            norm['NOME MOTORISTA'] ||
+            norm['NOME CONDUTOR'] ||
+            'Sem Identificação'
+        );
+        const hasDriver =
+          motoristaRaw !== '' &&
+          !motoristaRaw.toLowerCase().includes('sem ident') &&
+          !motoristaRaw.toLowerCase().includes('nao ident') &&
+          !motoristaRaw.toLowerCase().includes('não ident');
         const motorista = hasDriver ? motoristaRaw : 'Sem Identificação';
         if (!hasDriver) unidentified++;
 
         // Velocidade e Limiar
-        const velRaw = String(norm['VELOCIDADE'] || norm['EXCESSO'] || norm['VALOR'] || '0').replace('km/h', '').replace(',', '.').trim();
-        const limRaw = String(norm['LIMIAR'] || norm['LIMITE'] || norm['VELOCIDADE REGULAMENTAR'] || '80').replace('km/h', '').replace(',', '.').trim();
-        const vel = parseFloat(velRaw) || 0;
-        const lim = parseFloat(limRaw) || 80;
-        const delta = Math.max(0, parseFloat((vel - lim).toFixed(1)));
-        const pct = lim > 0 ? parseFloat(((delta / lim) * 100).toFixed(1)) : 0;
+        const velRaw =
+          norm['VELOCIDADE'] ??
+          norm['EXCESSO'] ??
+          norm['VALOR'] ??
+          norm['VELOCIDADE REGISTRADA'] ??
+          norm['VELOCIDADE MAXIMA'] ??
+          0;
+        const limRaw =
+          norm['LIMIAR'] ??
+          norm['LIMITE'] ??
+          norm['VELOCIDADE LIMITE'] ??
+          norm['VELOCIDADE REGULAMENTAR'] ??
+          80;
+        const vel = parseSpreadsheetNumber(velRaw, 0);
+        const lim = parseSpreadsheetNumber(limRaw, 80);
+        const delta =
+          norm['DELTA'] !== undefined && fixText(norm['DELTA']) !== ''
+            ? Math.max(0, parseSpreadsheetNumber(norm['DELTA'], Math.max(0, Number((vel - lim).toFixed(1)))))
+            : Math.max(0, Number((vel - lim).toFixed(1)));
+        const pct = lim > 0 ? Number(((delta / lim) * 100).toFixed(1)) : 0;
 
         if (vel > 0) speedCount++;
         if (vel > 80) violations80++;
 
-        // Datas e Horas
-        let dataEvento = fixText(norm['DATA'] || norm['DATA_EVENTO'] || norm['DATA EVENTO'] || new Date().toISOString().split('T')[0]);
-        // Se a data vier em DD/MM/YYYY, converte para YYYY-MM-DD para o Postgres
-        if (dataEvento.includes('/')) {
-          const parts = dataEvento.split('/');
-          if (parts.length === 3) dataEvento = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-        }
+        // Datas, Horas e Duração (trata seriais numéricos do Excel ex: 46033, frações de dia e strings DD/MM/AAAA)
+        const rawDataCell =
+          norm['DATA'] ?? norm['DATA_EVENTO'] ?? norm['DATA EVENTO'] ?? norm['DATA DO EVENTO'];
+        const rawHoraCell =
+          norm['HORA'] ?? norm['HORA_EVENTO'] ?? norm['HORA EVENTO'] ?? norm['HORARIO'];
+        const rawDuracaoCell =
+          norm['DURACAO'] ?? norm['DURAÇÃO'] ?? norm['TEMPO'] ?? norm['DURACAO EVENTO'];
 
-        const horaEvento = fixText(norm['HORA'] || norm['HORA_EVENTO'] || norm['HORA EVENTO'] || '12:00:00');
-        const hour = parseInt(horaEvento.split(':')[0] || '12', 10);
+        const dataEvento = normalizeSpreadsheetDate(rawDataCell, swapSerialDates);
+        const { timeStr: horaEvento, hour } = normalizeSpreadsheetTime(rawHoraCell, rawDataCell);
+        const { duracaoStr, duracaoSec } = normalizeSpreadsheetDuration(rawDuracaoCell);
 
         // Vínculo inteligente de placa à categoria oficial da frota
         const rawCategoria = fixText(
           norm['CATEGORIA'] ||
-          norm['TIPO VEICULO'] ||
-          norm['TIPO VEÍCULO'] ||
-          norm['CATEGORIA VEICULO'] ||
-          norm['CATEGORIA DO VEICULO'] ||
-          ''
+            norm['TIPO VEICULO'] ||
+            norm['TIPO VEÍCULO'] ||
+            norm['CATEGORIA VEICULO'] ||
+            norm['CATEGORIA DO VEICULO'] ||
+            ''
         );
 
         const categoria = resolveVehicleCategory(placa, rawCategoria);
@@ -176,17 +258,24 @@ export default function UploadSpreadsheetModal({
 
         catDistribution[categoria] = (catDistribution[categoria] || 0) + 1;
 
-        const prefixo = fixText(norm['PREFIXO'] || norm['FROTA'] || '');
-        const cpf = fixText(norm['CPF'] || norm['DOCUMENTO'] || '-');
-        const uo = fixText(norm['UO'] || norm['UNIDADE'] || 'CASAGRANDE');
-        const logradouro = fixText(norm['LOGRADOURO'] || norm['RODOVIA'] || norm['LOCAL'] || 'MS-112');
-        const cidade = fixText(norm['CIDADE'] || norm['MUNICIPIO'] || 'Não Informado');
-        const estado = fixText(norm['ESTADO'] || norm['UF'] || 'MS');
+        const prefixo = fixText(norm['PREFIXO'] || norm['FROTA'] || norm['ID EQUIPAMENTO'] || norm['EQUIPAMENTO'] || '');
+        const cpf = fixText(norm['CPF'] || norm['DOCUMENTO'] || norm['CPF MOTORISTA'] || '-') || '-';
+        const uo = fixText(norm['UO'] || norm['UNIDADE'] || norm['UNIDADE OPERACIONAL'] || 'CASAGRANDE') || 'CASAGRANDE';
+        const logradouro = fixText(norm['LOGRADOURO'] || norm['RODOVIA'] || norm['VIA'] || norm['LOCAL'] || 'MS-112') || 'MS-112';
+        const cidade = fixText(norm['CIDADE'] || norm['MUNICIPIO'] || 'Não Informado') || 'Não Informado';
+        const estado = fixText(norm['ESTADO'] || norm['UF'] || 'MS') || 'MS';
+        const tipo = normalizeAlertType(
+          norm['TIPO'] ?? norm['TIPO ALERTA'] ?? norm['TIPO DE ALERTA'] ?? norm['EVENTO'],
+          lim
+        );
+
+        const lat = parseSpreadsheetCoord(norm['LATITUDE'] ?? norm['LAT'], true);
+        const lng = parseSpreadsheetCoord(norm['LONGITUDE'] ?? norm['LONG'] ?? norm['LNG'], false);
 
         // Chave de deduplicação idempotente
-        const hashDedup = `${placa}_${dataEvento}_${horaEvento}_${vel}`;
+        const hashDedup = `${placa}_${dataEvento}_${horaEvento}_${vel}_${tipo}`;
 
-        records.push({
+        const rec: Record<string, any> = {
           hash_dedup: hashDedup,
           placa,
           prefixo,
@@ -194,22 +283,31 @@ export default function UploadSpreadsheetModal({
           motorista,
           cpf,
           uo,
-          tipo: fixText(norm['TIPO'] || 'EXCESSO_VELOCIDADE'),
+          tipo,
           nivel: delta > 20 ? 'ALTO' : delta > 10 ? 'MEDIO' : 'BAIXO',
           limiar: lim,
           velocidade: vel,
           delta,
           pct,
-          duracao_str: fixText(norm['DURACAO'] || norm['DURAÇÃO'] || '00:02:00'),
-          duracao_sec: 120,
+          duracao_str: duracaoStr,
+          duracao_sec: duracaoSec,
           logradouro,
           cidade,
           estado,
           data_evento: dataEvento,
           hora_evento: horaEvento,
           hour: isNaN(hour) ? 12 : hour,
-          status: 'NOVO',
-        });
+          status: fixText(norm['STATUS'] || 'NOVO') || 'NOVO',
+        };
+
+        if (lat !== null) rec.lat = lat;
+        if (lng !== null) rec.lng = lng;
+
+        records.push(rec);
+      }
+
+      if (records.length === 0) {
+        throw new Error('Nenhum registro válido de telemetria (com coluna de Placa/Veículo) foi encontrado na planilha.');
       }
 
       // Placas sem cadastro que precisam de confirmação se houver
@@ -225,7 +323,7 @@ export default function UploadSpreadsheetModal({
 
       setSummary({
         fileName: file.name,
-        totalRows: rawData.length,
+        totalRows: records.length,
         speedExcesses: speedCount,
         violationsAbove80: violations80,
         uniquePlates: platesSet.size,

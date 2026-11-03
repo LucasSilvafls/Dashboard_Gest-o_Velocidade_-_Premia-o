@@ -297,7 +297,7 @@ export default function Home() {
     try {
       const [fetchedStats, fetchedIncidents, fetchedDrivers, fetchedLogs] = await Promise.all([
         fetchTelemetrySummaryStats(),
-        fetchIncidents(10000),
+        fetchIncidents(50000),
         fetchDriverComplianceScores(),
         fetchUploadAuditLogs(),
       ]);

@@ -21,6 +21,13 @@ import {
   resolveVehicleCategory,
   cleanPlate,
   normalizeVehicleCategory,
+  normalizeSpreadsheetDate,
+  detectExcelSerialDateSwap,
+  normalizeSpreadsheetTime,
+  normalizeSpreadsheetDuration,
+  parseSpreadsheetNumber,
+  parseSpreadsheetCoord,
+  normalizeAlertType,
 } from './telemetry-service';
 import { INITIAL_DRIVERS, INITIAL_INCIDENTS } from './telemetry-data';
 
@@ -379,6 +386,42 @@ test('Vínculo Placa x Categoria: resolveVehicleCategory e cleanPlate vinculam m
   assert.equal(resolveVehicleCategory('TESTDEL', 'TEST'), 'CAVALO');
   assert.equal(resolveVehicleCategory('SLY2F45', '-'), 'ÔNIBUS');
 });
+
+test('Leitura e higienização de planilhas: converte datas seriais do Excel ("46033"), horários e durações', () => {
+  // 1. Conversão de serial do Excel 46033 (string e number) para ISO YYYY-MM-DD
+  assert.equal(normalizeSpreadsheetDate('46033'), '2026-01-11');
+  assert.equal(normalizeSpreadsheetDate(46033), '2026-01-11');
+  assert.equal(normalizeSpreadsheetDate('46033', true), '2026-11-01');
+
+  // 2. Conversão de datas BR e ISO com ou sem horário acoplado
+  assert.equal(normalizeSpreadsheetDate('25/10/2026'), '2026-10-25');
+  assert.equal(normalizeSpreadsheetDate('25/10/2026 16:20:00'), '2026-10-25');
+  assert.equal(normalizeSpreadsheetDate('2026-10-25T16:20:00'), '2026-10-25');
+
+  // 3. Detecção automática de inversão DD/MM <-> MM/DD em planilhas mistas do Excel
+  const mixedNovSheet = ['26/10/2026', '27/10/2026', '31/10/2026', 46033, 46064];
+  assert.equal(detectExcelSerialDateSwap(mixedNovSheet), true);
+  assert.equal(normalizeSpreadsheetDate(46033, detectExcelSerialDateSwap(mixedNovSheet)), '2026-11-01');
+
+  const genuineJanSheet = ['13/01/2026', '14/01/2026', 46033];
+  assert.equal(detectExcelSerialDateSwap(genuineJanSheet), false);
+  assert.equal(normalizeSpreadsheetDate(46033, detectExcelSerialDateSwap(genuineJanSheet)), '2026-01-11');
+
+  // 4. Horários (fração de dia do Excel e strings)
+  assert.deepEqual(normalizeSpreadsheetTime(0.5), { timeStr: '12:00:00', hour: 12 });
+  assert.deepEqual(normalizeSpreadsheetTime('16:20:00'), { timeStr: '16:20:00', hour: 16 });
+  assert.deepEqual(normalizeSpreadsheetTime('08:05'), { timeStr: '08:05:00', hour: 8 });
+
+  // 5. Duração, números com unidades, coordenadas e tipo de alerta
+  assert.deepEqual(normalizeSpreadsheetDuration('00:02:10'), { duracaoStr: '00:02:10', duracaoSec: 130 });
+  assert.deepEqual(normalizeSpreadsheetDuration(120), { duracaoStr: '00:02:00', duracaoSec: 120 });
+  assert.equal(parseSpreadsheetNumber('98 km/h'), 98);
+  assert.equal(parseSpreadsheetNumber('24,33 Km/h/s'), 24.33);
+  assert.equal(parseSpreadsheetCoord('-21.503.626', true), -21.503626);
+  assert.equal(normalizeAlertType('EXCESSO DE VELOCIDADE', 80), 'EXCESSO_VELOCIDADE');
+  assert.equal(normalizeAlertType('EXCESSO DE VELOCIDADE POR VIA', 60), 'EXCESSO_VELOCIDADE_POR_VIA');
+});
+
 
 
 
