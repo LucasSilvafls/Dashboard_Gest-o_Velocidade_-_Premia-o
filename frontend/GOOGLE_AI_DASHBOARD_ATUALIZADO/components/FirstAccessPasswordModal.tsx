@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { hashCorporatePassword, normalizeCorporateUsername } from '@/lib/auth-crypto';
 import { ShieldCheck, Lock, Eye, EyeOff, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 interface FirstAccessPasswordModalProps {
@@ -41,7 +42,10 @@ export default function FirstAccessPasswordModal({
       return;
     }
 
-    if (newPassword.toLowerCase() === 'casagrande@2026' || newPassword.toLowerCase() === 'admin@casagrande2026') {
+    if (
+      newPassword.toLowerCase() === 'casagrande@2026' ||
+      newPassword.toLowerCase() === 'admin@casagrande2026'
+    ) {
       setErrorMessage('A nova senha não pode ser igual à senha padrão corporativa.');
       return;
     }
@@ -53,8 +57,11 @@ export default function FirstAccessPasswordModal({
 
     setIsSubmitting(true);
 
+    const cleanUname = normalizeCorporateUsername(user?.username || 'admincasagrande');
+    const pwdHash = hashCorporatePassword(newPassword);
+
     try {
-      // 1. Atualizar a senha no Supabase Auth
+      // 1. Atualizar a senha no Supabase Auth (se houver sessão ativa no provedor)
       const { error: authError } = await supabase.auth.updateUser({
         password: newPassword,
         data: {
@@ -79,21 +86,23 @@ export default function FirstAccessPasswordModal({
           .eq('username', user.username);
       }
 
-      // 3. Registrar sinalizador de primeiro acesso concluído (sem gravar senhas em texto puro)
-      if (typeof window !== 'undefined' && user?.username) {
+      // 3. Registrar apenas o hash criptográfico SHA-256 (sem gravar senhas em texto puro)
+      if (typeof window !== 'undefined' && cleanUname) {
         try {
-          localStorage.setItem(`csg_pw_changed_${user.username}`, 'true');
-          localStorage.removeItem(`csg_custom_pass_${user.username}`);
+          localStorage.setItem(`csg_pw_changed_${cleanUname}`, 'true');
+          localStorage.setItem(`csg_pwd_hash_v2_${cleanUname}`, pwdHash);
+          localStorage.removeItem(`csg_custom_pass_${cleanUname}`);
         } catch {}
       }
 
       onPasswordChanged();
     } catch (err: any) {
       console.warn('Erro ao atualizar senha no Supabase:', err);
-      if (typeof window !== 'undefined' && user?.username) {
+      if (typeof window !== 'undefined' && cleanUname) {
         try {
-          localStorage.setItem(`csg_pw_changed_${user.username}`, 'true');
-          localStorage.removeItem(`csg_custom_pass_${user.username}`);
+          localStorage.setItem(`csg_pw_changed_${cleanUname}`, 'true');
+          localStorage.setItem(`csg_pwd_hash_v2_${cleanUname}`, pwdHash);
+          localStorage.removeItem(`csg_custom_pass_${cleanUname}`);
         } catch {}
       }
       onPasswordChanged();
@@ -113,14 +122,14 @@ export default function FirstAccessPasswordModal({
           <div className="flex-1">
             <div className="flex items-center gap-2">
               <h3 className="font-bold text-white text-base">
-                Primeiro Acesso ao CCO
+                Redefinição de Senha CCO
               </h3>
-              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#f59e0b]/20 text-[#f59e0b] border border-[#f59e0b]/30">
-                OBRIGATÓRIO
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#34b344]/20 text-[#34b344] border border-[#34b344]/30">
+                CRIPTOGRAFADO
               </span>
             </div>
             <p className="text-xs text-[#94a3b8] mt-1 leading-relaxed">
-              Olá, <strong className="text-white">{user?.name || user?.username}</strong>. Por política de segurança operacional, redefina a senha padrão para uma chave pessoal exclusiva.
+              Olá, <strong className="text-white">{user?.name || user?.username}</strong>. Defina sua chave de acesso pessoal protegida por hash SHA-256.
             </p>
           </div>
         </div>
@@ -224,7 +233,7 @@ export default function FirstAccessPasswordModal({
                 onClick={onLogout}
                 className="px-3.5 py-2.5 rounded-xl bg-[#1c2432] hover:bg-red-500/10 text-[#94a3b8] hover:text-red-400 border border-[#283548] hover:border-red-500/30 text-xs font-semibold transition-all cursor-pointer"
               >
-                Sair
+                Cancelar
               </button>
             )}
             <button

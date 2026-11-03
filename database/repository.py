@@ -455,11 +455,16 @@ def seed_default_users(
     session: Session,
     default_admin_pass: str = "admin123",
     default_viewer_pass: str = "viewer123",
+    default_corporate_pass: str = "Casagrande@2026",
 ) -> Dict[str, str]:
     """
-    Inicializa os usuários padrão do sistema (Admin e Viewer) se ainda não existirem.
+    Inicializa os usuários padrão do sistema (Admin, Viewer e Contas Corporativas CCO) se ainda não existirem.
     - admin / admin123 (Role: admin -> permissão de upload e dashboards)
     - viewer / viewer123 (Role: viewer -> permissão de visualização e filtros)
+    - admincasagrande / Casagrande@2026 (Role: admin)
+    - rafaelcasagrande / Casagrande@2026 (Role: admin)
+    - rafael / Casagrande@2026 (Role: admin)
+    - operadorcasagrande / Casagrande@2026 (Role: viewer)
     """
     seeded = {}
 
@@ -486,5 +491,25 @@ def seed_default_users(
             nome_completo="Visualizador CSG",
         )
         seeded["viewer"] = "Criado com sucesso (role=viewer)"
+
+    corporate_accounts = [
+        ("admincasagrande", UserRole.ADMIN.value, "admincasagrande@casagrandetransportes.com.br", "Administrador CCO"),
+        ("rafaelcasagrande", UserRole.ADMIN.value, "rafaelcasagrande@casagrandetransportes.com.br", "Rafael Casagrande"),
+        ("rafael", UserRole.ADMIN.value, "rafael@casagrandetransportes.com.br", "Rafael Casagrande"),
+        ("operadorcasagrande", UserRole.VIEWER.value, "operadorcasagrande@casagrandetransportes.com.br", "Operador CCO"),
+    ]
+
+    for uname, role_val, email_val, nome_val in corporate_accounts:
+        existing_corp = get_usuario_by_username(session, uname)
+        if not existing_corp:
+            create_usuario(
+                session=session,
+                username=uname,
+                raw_password=default_corporate_pass,
+                role=role_val,
+                email=email_val,
+                nome_completo=nome_val,
+            )
+            seeded[uname] = f"Criado com sucesso (role={role_val})"
 
     return seeded

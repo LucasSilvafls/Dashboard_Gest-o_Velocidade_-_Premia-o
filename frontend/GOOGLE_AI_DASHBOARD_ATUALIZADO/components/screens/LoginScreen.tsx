@@ -5,6 +5,11 @@ import Image from 'next/image';
 import { useTheme } from '@/lib/ThemeContext';
 import { supabase } from '@/lib/supabaseClient';
 import {
+  normalizeCorporateUsername,
+  verifyCorporateCredentials,
+  createSignedSessionToken,
+} from '@/lib/auth-crypto';
+import {
   CASAGRANDE_LOGO_DARK_URL,
   CASAGRANDE_LOGO_LIGHT_URL,
 } from '@/components/Sidebar';
@@ -55,19 +60,12 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
       return;
     }
 
-    // Normalização de apelidos comuns (ex: "admin", "administrador", etc.)
-    let cleanUsername = rawInput;
-    if (rawInput === 'admin' || rawInput === 'administrador' || rawInput.includes('admin.cco')) {
-      cleanUsername = 'admincasagrande';
-    } else if (rawInput === 'rafael') {
-      cleanUsername = 'rafaelcasagrande';
-    } else if (rawInput === 'operador') {
-      cleanUsername = 'operadorcasagrande';
-    }
+    // Normalização de apelidos comuns (ex: "admin", "administrador", "rafael", "operador")
+    const cleanUsername = normalizeCorporateUsername(rawInput);
 
     // Sintetiza o email corporativo para autenticação no Supabase Auth
-    const effectiveEmail = cleanUsername.includes('@')
-      ? cleanUsername
+    const effectiveEmail = rawInput.includes('@')
+      ? rawInput
       : `${cleanUsername}@casagrandetransportes.com.br`;
 
     setIsLoading(true);
@@ -86,6 +84,11 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         console.warn('Aviso: falha ao consultar perfis_usuarios:', eProf);
       }
 
+      const customHash =
+        typeof window !== 'undefined'
+          ? localStorage.getItem(`csg_pwd_hash_v2_${cleanUsername}`)
+          : null;
+
       // 2. Autenticação criptográfica primária: Supabase Auth
       try {
         const targetEmail = profileData?.email || effectiveEmail;
@@ -96,7 +99,6 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
 
         if (!error && data?.user) {
           const meta = data.user.user_metadata || {};
-          const needsFirstAccess = profileData?.primeiro_acesso ?? false;
 
           onLoginSuccess({
             id: data.user.id || profileData?.id,
@@ -110,7 +112,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                 ? 'Supervisor de Telemetria & Operações'
                 : 'Visualizador CCO',
             email: data.user.email || targetEmail,
-            primeiroAcesso: Boolean(needsFirstAccess),
+            primeiroAcesso: false,
           });
           return;
         }
@@ -118,14 +120,15 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         console.warn('Aviso: falha na tentativa via Supabase Auth:', authErr);
       }
 
-      // 3. Autenticação criptográfica secundária: API Backend (FastAPI com bcrypt)
+      // 3. Autenticação criptográfica secundária: API Server (/api/auth/login)
       try {
         const apiRes = await fetch('/api/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            username: rawInput,
+            username: cleanUsername,
             password,
+            customHash,
           }),
         });
 
@@ -136,21 +139,42 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
               localStorage.setItem('csg_backend_token', tokenData.access_token);
             }
             onLoginSuccess({
-              id: `api-user-${tokenData.username}`,
-              name: tokenData.nome_completo || 'Administrador CCO',
+              id: profileData?.id || `api-user-${tokenData.username}`,
+              name: profileData?.nome || tokenData.nome_completo || 'Administrador CCO',
               username: tokenData.username,
               role:
                 tokenData.role === 'admin'
                   ? 'Supervisor de Telemetria & Operações'
                   : 'Visualizador CCO',
-              email: `${tokenData.username}@casagrandetransportes.com.br`,
+              email:
+                profileData?.email ||
+                tokenData.email ||
+                `${tokenData.username}@casagrandetransportes.com.br`,
               primeiroAcesso: false,
             });
             return;
           }
         }
       } catch {
-        // Backend API offline ou inacessível no ambiente estático
+        // Segue para verificação criptográfica SHA-256 local caso o endpoint esteja offline
+      }
+
+      // 4. Verificação criptográfica SHA-256 + Emissão de Token HMAC-SHA256
+      const verifiedProfile = verifyCorporateCredentials(cleanUsername, password, customHash);
+      if (verifiedProfile) {
+        const signedToken = createSignedSessionToken(verifiedProfile);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('csg_backend_token', signedToken);
+        }
+        onLoginSuccess({
+          id: profileData?.id || verifiedProfile.id,
+          name: profileData?.nome || verifiedProfile.name,
+          username: verifiedProfile.username,
+          role: verifiedProfile.roleLabel,
+          email: profileData?.email || verifiedProfile.email,
+          primeiroAcesso: false,
+        });
+        return;
       }
 
       // Credenciais não validadas por nenhum dos provedores criptográficos

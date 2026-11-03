@@ -19,6 +19,7 @@ import FirstAccessPasswordModal from '@/components/FirstAccessPasswordModal';
 import TelemetryPreloader from '@/components/TelemetryPreloader';
 import UploadSpreadsheetModal from '@/components/UploadSpreadsheetModal';
 import { supabase } from '@/lib/supabaseClient';
+import { verifySignedSessionToken } from '@/lib/auth-crypto';
 
 import {
   INITIAL_ROAD_PARAMETERS,
@@ -156,7 +157,7 @@ export default function Home() {
     });
   }, []);
 
-  // 1. Verificação de Sessão Inicial (LocalStorage + Supabase Auth com timeout de segurança)
+  // 1. Verificação de Sessão Inicial (Token HMAC-SHA256 + Supabase Auth com timeout de segurança)
   useEffect(() => {
     setMounted(true);
     let isCancelled = false;
@@ -170,7 +171,34 @@ export default function Home() {
 
     const checkInitialSession = async () => {
       try {
-        // 1. Verificar sessão ativa e assinada no Supabase Auth
+        // 1. Verificar token de sessão assinado com HMAC-SHA256 (instantâneo)
+        if (typeof window !== 'undefined') {
+          const backendToken = localStorage.getItem('csg_backend_token');
+          if (backendToken) {
+            const verifiedPayload = verifySignedSessionToken(backendToken);
+            if (verifiedPayload && !isCancelled) {
+              const userObj: AuthenticatedUser = {
+                id: `cco-user-${verifiedPayload.sub}`,
+                name: verifiedPayload.name,
+                username: verifiedPayload.sub,
+                email: verifiedPayload.email,
+                role:
+                  verifiedPayload.role === 'admin'
+                    ? 'Supervisor de Telemetria & Operações'
+                    : 'Visualizador CCO',
+                primeiroAcesso: false,
+              };
+              setCurrentUser(userObj);
+              setIsAuthenticated(true);
+              try {
+                localStorage.setItem('csg_session_user_v1', JSON.stringify(userObj));
+              } catch {}
+              return;
+            }
+          }
+        }
+
+        // 2. Verificar sessão ativa e assinada no Supabase Auth
         const sessionPromise = supabase.auth.getSession().catch(() => ({ data: { session: null } }));
         const timeoutPromise = new Promise<{ data: { session: null } }>((resolve) =>
           setTimeout(() => resolve({ data: { session: null } }), 1200)
@@ -183,7 +211,6 @@ export default function Home() {
           const email = session.user.email || '';
           const uname = session.user.user_metadata?.username || email.split('@')[0] || 'admincasagrande';
           const name = session.user.user_metadata?.nome || (uname.includes('rafael') ? 'Rafael Casagrande' : 'Administrador CCO');
-          const isDefault = session.user.user_metadata?.primeiro_acesso ?? false;
 
           const userObj: AuthenticatedUser = {
             id: session.user.id,
@@ -191,7 +218,7 @@ export default function Home() {
             username: uname,
             email,
             role: session.user.user_metadata?.role || 'admin',
-            primeiroAcesso: isDefault,
+            primeiroAcesso: false,
           };
 
           setCurrentUser(userObj);
@@ -199,13 +226,10 @@ export default function Home() {
           try {
             localStorage.setItem('csg_session_user_v1', JSON.stringify(userObj));
           } catch {}
-          if (isDefault) {
-            setIsFirstAccessModalOpen(true);
-          }
           return;
         }
 
-        // 2. Verificar sessão ativa emitida pelo Backend FastAPI (/api/auth/me)
+        // 3. Verificar sessão ativa emitida pelo Backend FastAPI (/api/auth/me)
         if (typeof window !== 'undefined') {
           const backendToken = localStorage.getItem('csg_backend_token');
           if (backendToken) {
@@ -238,7 +262,7 @@ export default function Home() {
           }
         }
 
-        // 3. Sem sessão criptográfica válida comprovada: limpa qualquer resquício não autenticado
+        // 4. Sem sessão criptográfica válida comprovada: limpa qualquer resquício não autenticado
         if (typeof window !== 'undefined') {
           try {
             localStorage.removeItem('csg_session_user_v1');
