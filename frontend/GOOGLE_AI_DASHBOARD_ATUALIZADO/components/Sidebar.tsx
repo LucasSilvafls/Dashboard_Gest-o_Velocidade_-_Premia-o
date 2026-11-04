@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Image from 'next/image';
+import { useTheme } from '@/lib/ThemeContext';
 import {
   Sidebar as BaseSidebar,
   SidebarHeader,
@@ -99,6 +100,37 @@ const NAV_ITEMS: {
   },
 ];
 
+function getSidebarBadgeClasses(badgeColor: string | undefined, isLight: boolean, isActive: boolean): string {
+  const base = 'rounded px-1.5 py-0.5 text-[9.5px] font-bold font-tabular-data leading-none border transition-colors';
+  if (isLight) {
+    if (badgeColor === '#ef4444') {
+      return `${base} bg-[#fee2e2] text-[#dc2626] border-[#fca5a5]`;
+    }
+    if (badgeColor === '#34b344') {
+      return `${base} bg-[#dcfce7] text-[#15803d] border-[#86efac]`;
+    }
+    if (badgeColor === '#f59e0b') {
+      return `${base} bg-[#fef3c7] text-[#b45309] border-[#fcd34d]`;
+    }
+    if (isActive) {
+      return `${base} bg-[#dcfce7] text-[#15803d] border-[#86efac]`;
+    }
+    return `${base} bg-[#f1f5f9] text-[#475569] border-[#cbd5e1]`;
+  }
+
+  // Dark mode
+  if (badgeColor === '#ef4444') {
+    return `${base} bg-[#0c1017] text-[#ef4444] border-[#ef4444]/30`;
+  }
+  if (badgeColor === '#34b344') {
+    return `${base} bg-[#0c1017] text-[#34b344] border-[#34b344]/30`;
+  }
+  if (badgeColor === '#f59e0b') {
+    return `${base} bg-[#0c1017] text-[#f59e0b] border-[#f59e0b]/30`;
+  }
+  return `${base} bg-[#0c1017] text-[#94a3b8] border-[#283548]`;
+}
+
 function CasagrandeBrandMark() {
   const { collapsed } = useSidebar();
   if (collapsed) {
@@ -140,6 +172,8 @@ function CasagrandeUserFooter({
   user?: { name: string; username: string } | null;
 }) {
   const { collapsed } = useSidebar();
+  const { theme } = useTheme();
+  const isLight = theme === 'light';
   const displayName = user?.name || 'Administrador CCO';
   return (
     <div
@@ -151,17 +185,37 @@ function CasagrandeUserFooter({
     >
       <div className="flex items-center gap-2.5 min-w-0">
         <div className="relative shrink-0">
-          <div className="size-8 rounded-lg bg-[#0c1017] border border-[#283548] group-hover:border-[#34b344] transition-colors flex items-center justify-center text-white">
-            <span className="font-bold text-xs text-[#34b344]">CCO</span>
+          <div
+            className={`size-8 rounded-lg border transition-colors flex items-center justify-center ${
+              isLight
+                ? 'bg-[#ecfdf5] border-[#86efac] group-hover:border-[#16a34a] text-[#15803d]'
+                : 'bg-[#0c1017] border-[#283548] group-hover:border-[#34b344] text-white'
+            }`}
+          >
+            <span className={`font-bold text-xs ${isLight ? 'text-[#15803d]' : 'text-[#34b344]'}`}>
+              CCO
+            </span>
           </div>
-          <span className="absolute -bottom-0.5 -right-0.5 size-2 rounded-full bg-[#34b344] ring-2 ring-[#131923] animate-pulse" />
+          <span
+            className={`absolute -bottom-0.5 -right-0.5 size-2 rounded-full bg-[#34b344] ring-2 animate-pulse ${
+              isLight ? 'ring-[#f8fafc]' : 'ring-[#131923]'
+            }`}
+          />
         </div>
         {!collapsed && (
           <div className="min-w-0 flex-1">
-            <div className="truncate text-[12px] font-semibold text-white leading-tight">
+            <div
+              className={`truncate text-[12px] font-semibold leading-tight ${
+                isLight ? 'text-[#0f172a]' : 'text-white'
+              }`}
+            >
               {displayName}
             </div>
-            <div className="truncate text-[10px] font-tabular-data text-[#34b344] font-bold leading-tight mt-0.5">
+            <div
+              className={`truncate text-[10px] font-tabular-data font-bold leading-tight mt-0.5 ${
+                isLight ? 'text-[#16a34a]' : 'text-[#34b344]'
+              }`}
+            >
               SISTEMA ONLINE
             </div>
           </div>
@@ -174,7 +228,11 @@ function CasagrandeUserFooter({
             e.stopPropagation();
             onLogout?.();
           }}
-          className="p-1 rounded text-[#94a3b8] hover:text-[#ef4444] hover:bg-[#1c2432] transition-colors cursor-pointer"
+          className={`p-1 rounded transition-colors cursor-pointer ${
+            isLight
+              ? 'text-[#64748b] hover:text-[#dc2626] hover:bg-[#fee2e2]'
+              : 'text-[#94a3b8] hover:text-[#ef4444] hover:bg-[#1c2432]'
+          }`}
           title="Encerrar Sessão (Logout)"
           aria-label="Encerrar Sessão"
         >
@@ -197,6 +255,9 @@ export default function Sidebar({
   user,
   stats,
 }: SidebarProps) {
+  const { theme } = useTheme();
+  const isLight = theme === 'light';
+
   const handleItemClick = (id: ScreenId) => {
     onSelectScreen(id);
     if (onMobileClose) {
@@ -246,7 +307,11 @@ export default function Sidebar({
                 <button
                   type="button"
                   onClick={onMobileClose}
-                  className="lg:hidden size-9 min-h-[36px] min-w-[36px] rounded-lg text-[#94a3b8] hover:text-white hover:bg-[#1c2432] transition-colors cursor-pointer flex items-center justify-center"
+                  className={`lg:hidden size-9 min-h-[36px] min-w-[36px] rounded-lg transition-colors cursor-pointer flex items-center justify-center ${
+                    isLight
+                      ? 'text-[#64748b] hover:text-[#0f172a] hover:bg-[#f1f5f9]'
+                      : 'text-[#94a3b8] hover:text-white hover:bg-[#1c2432]'
+                  }`}
                   aria-label="Fechar menu"
                 >
                   <span className="material-symbols-outlined text-[20px]">close</span>
@@ -268,11 +333,8 @@ export default function Sidebar({
                     badge={
                       item.badge ? (
                         <span
-                          className="rounded px-1.5 py-0.5 text-[9.5px] font-bold font-tabular-data leading-none bg-[#0c1017] border border-[#283548]"
-                          style={{
-                            color: item.badgeColor || '#94a3b8',
-                            borderColor: item.badgeColor ? `${item.badgeColor}40` : '#283548',
-                          }}
+                          data-slot="sidebar-badge"
+                          className={getSidebarBadgeClasses(item.badgeColor, isLight, isActive)}
                         >
                           {item.badge}
                         </span>

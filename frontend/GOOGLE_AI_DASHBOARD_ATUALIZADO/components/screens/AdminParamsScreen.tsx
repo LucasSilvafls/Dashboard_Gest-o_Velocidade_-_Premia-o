@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { useTheme } from '@/lib/ThemeContext';
 import { RoadParameter, AuditLog } from '@/lib/telemetry-data';
 import { BonusRules, DEFAULT_BONUS_RULES } from '@/lib/telemetry-rules';
 import {
@@ -30,6 +31,9 @@ export default function AdminParamsScreen({
   bonusRules,
   onVehiclesUpdated,
 }: AdminParamsScreenProps) {
+  const { theme } = useTheme();
+  const isLight = theme === 'light';
+
   const [activeTab, setActiveTab] = useState<'roads' | 'rules' | 'logs' | 'vehicles'>('roads');
   const [isPropagating, setIsPropagating] = useState(false);
   const [propagatedSuccess, setPropagatedSuccess] = useState(false);
@@ -200,16 +204,28 @@ export default function AdminParamsScreen({
   return (
     <div className="flex flex-col w-full text-on-surface pb-10 animate-fade-in space-y-6">
       {/* 1. Screen Header & Actions */}
-      <div className="flex flex-wrap items-center justify-between gap-4 py-2 border-b border-[#283548]/40 pb-4">
+      <div
+        className={`flex flex-wrap items-center justify-between gap-4 py-2 border-b pb-4 ${
+          isLight ? 'border-[#e2e8f0]' : 'border-[#283548]/40'
+        }`}
+      >
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-2 h-7 bg-[#34b344] rounded-full shadow-[0_0_8px_#34b344]" />
           <div className="flex flex-col">
             <div className="flex items-center gap-2">
-              <h1 className="font-headline-lg text-xl tracking-tight text-white font-bold">
+              <h1
+                className={`font-headline-lg text-xl tracking-tight font-bold ${
+                  isLight ? 'text-[#0f172a]' : 'text-white'
+                }`}
+              >
                 Painel Admin & Parametrizações
               </h1>
             </div>
-            <span className="font-body-sm text-xs text-[#94a3b8] mt-0.5">
+            <span
+              className={`font-body-sm text-xs mt-0.5 ${
+                isLight ? 'text-[#475569]' : 'text-[#94a3b8]'
+              }`}
+            >
               Configuração de limites de velocidade por rodovia e tipo de composição, tolerâncias operacionais e governança
             </span>
           </div>
@@ -218,10 +234,20 @@ export default function AdminParamsScreen({
         <div className="flex items-center gap-2.5 flex-wrap">
           <button
             onClick={handleRestoreDefaults}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-[#1c2432] text-[#f1f5f9] border border-[#283548] hover:bg-[#283548] hover:border-[#34b344] transition-colors font-body-sm text-xs cursor-pointer shadow-sm"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded border transition-colors font-body-sm text-xs cursor-pointer shadow-sm ${
+              isLight
+                ? 'bg-white text-[#0f172a] border-[#cbd5e1] hover:bg-[#f1f5f9] hover:border-[#16a34a]'
+                : 'bg-[#1c2432] text-[#f1f5f9] border-[#283548] hover:bg-[#283548] hover:border-[#34b344]'
+            }`}
             type="button"
           >
-            <span className="material-symbols-outlined text-[16px] text-[#34b344]">restart_alt</span>
+            <span
+              className={`material-symbols-outlined text-[16px] ${
+                isLight ? 'text-[#16a34a]' : 'text-[#34b344]'
+              }`}
+            >
+              restart_alt
+            </span>
             <span>Restaurar Padrões</span>
           </button>
           <button
@@ -254,124 +280,326 @@ export default function AdminParamsScreen({
 
       {/* 2. Faixa Superior de Status e Saúde do Sistema (5 Cards Independentes com Espaçamento Amplo) */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3.5">
-        <div className="bg-[#181c22] rounded-xl p-3.5 border border-[#262b35] hover:border-[#2ca03a]/40 transition-colors shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between text-[#9ba3af] font-tabular-data text-[10px] uppercase font-bold">
+        <div
+          className={`rounded-xl p-3.5 border transition-colors shadow-sm flex flex-col justify-between ${
+            isLight
+              ? 'bg-white border-[#e2e8f0] hover:border-[#16a34a]/50'
+              : 'bg-[#181c22] border-[#262b35] hover:border-[#2ca03a]/40'
+          }`}
+        >
+          <div
+            className={`flex items-center justify-between font-tabular-data text-[10px] uppercase font-bold ${
+              isLight ? 'text-[#475569]' : 'text-[#9ba3af]'
+            }`}
+          >
             <span className="truncate">INTEGRAÇÃO CAN / API</span>
-            <div className="w-6 h-6 rounded bg-[#2ca03a]/10 border border-[#2ca03a]/30 flex items-center justify-center">
-              <span className="material-symbols-outlined text-[#2ca03a] text-[15px]">hub</span>
+            <div
+              className={`w-6 h-6 rounded border flex items-center justify-center ${
+                isLight
+                  ? 'bg-[#dcfce7] border-[#86efac]'
+                  : 'bg-[#2ca03a]/10 border-[#2ca03a]/30'
+              }`}
+            >
+              <span
+                className={`material-symbols-outlined text-[15px] ${
+                  isLight ? 'text-[#16a34a]' : 'text-[#2ca03a]'
+                }`}
+              >
+                hub
+              </span>
             </div>
           </div>
           <div className="my-1.5">
             <div className="flex items-baseline gap-1">
-              <span className="font-tabular-data text-2xl font-bold text-[#2ca03a]">100%</span>
-              <span className="font-tabular-data text-[10px] text-[#2ca03a] font-semibold">
+              <span
+                className={`font-tabular-data text-2xl font-bold ${
+                  isLight ? 'text-[#16a34a]' : 'text-[#2ca03a]'
+                }`}
+              >
+                100%
+              </span>
+              <span
+                className={`font-tabular-data text-[10px] font-semibold ${
+                  isLight ? 'text-[#16a34a]' : 'text-[#2ca03a]'
+                }`}
+              >
                 Sincronizado
               </span>
             </div>
           </div>
-          <div className="flex flex-col gap-0.5 font-tabular-data text-xs text-[#9ba3af]">
+          <div
+            className={`flex flex-col gap-0.5 font-tabular-data text-xs ${
+              isLight ? 'text-[#475569]' : 'text-[#9ba3af]'
+            }`}
+          >
             <div className="flex justify-between">
               <span>Latência Média:</span>
-              <span className="text-[#dde3ed] font-semibold">42 ms</span>
+              <span className={`font-semibold ${isLight ? 'text-[#0f172a]' : 'text-[#dde3ed]'}`}>
+                42 ms
+              </span>
             </div>
             <div className="flex justify-between">
               <span>Último Pacote:</span>
-              <span className="text-[#2ca03a] font-medium">há 4s (35 ativos)</span>
+              <span className={`font-medium ${isLight ? 'text-[#16a34a]' : 'text-[#2ca03a]'}`}>
+                há 4s (35 ativos)
+              </span>
             </div>
           </div>
         </div>
 
-        <div className="bg-[#181c22] rounded-xl p-3.5 border border-[#262b35] hover:border-[#2ca03a]/40 transition-colors shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between text-[#9ba3af] font-tabular-data text-[10px] uppercase font-bold">
+        <div
+          className={`rounded-xl p-3.5 border transition-colors shadow-sm flex flex-col justify-between ${
+            isLight
+              ? 'bg-white border-[#e2e8f0] hover:border-[#16a34a]/50'
+              : 'bg-[#181c22] border-[#262b35] hover:border-[#2ca03a]/40'
+          }`}
+        >
+          <div
+            className={`flex items-center justify-between font-tabular-data text-[10px] uppercase font-bold ${
+              isLight ? 'text-[#475569]' : 'text-[#9ba3af]'
+            }`}
+          >
             <span className="truncate">TETO GLOBAL REGULAMENTAR</span>
-            <div className="w-6 h-6 rounded bg-[#f4cf00]/10 border border-[#f4cf00]/30 flex items-center justify-center">
-              <span className="material-symbols-outlined text-[#f4cf00] text-[15px]">speed</span>
+            <div
+              className={`w-6 h-6 rounded border flex items-center justify-center ${
+                isLight
+                  ? 'bg-[#fef3c7] border-[#fcd34d]'
+                  : 'bg-[#f4cf00]/10 border-[#f4cf00]/30'
+              }`}
+            >
+              <span
+                className={`material-symbols-outlined text-[15px] ${
+                  isLight ? 'text-[#d97706]' : 'text-[#f4cf00]'
+                }`}
+              >
+                speed
+              </span>
             </div>
           </div>
           <div className="my-1.5">
             <div className="flex items-baseline gap-1">
-              <span className="font-tabular-data text-2xl font-bold text-[#dde3ed]">80</span>
-              <span className="font-tabular-data text-xs text-[#94a3b8]">km/h</span>
+              <span
+                className={`font-tabular-data text-2xl font-bold ${
+                  isLight ? 'text-[#0f172a]' : 'text-[#dde3ed]'
+                }`}
+              >
+                80
+              </span>
+              <span
+                className={`font-tabular-data text-xs ${
+                  isLight ? 'text-[#475569]' : 'text-[#94a3b8]'
+                }`}
+              >
+                km/h
+              </span>
             </div>
           </div>
-          <div className="text-[#9ba3af] text-[11px] leading-tight">
+          <div className={`text-[11px] leading-tight ${isLight ? 'text-[#475569]' : 'text-[#9ba3af]'}`}>
             Aplicado a todas as composições pesadas e trechos rurais.
           </div>
         </div>
 
-        <div className="bg-[#181c22] rounded-xl p-3.5 border border-[#262b35] hover:border-[#2ca03a]/40 transition-colors shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between text-[#9ba3af] font-tabular-data text-[10px] uppercase font-bold">
+        <div
+          className={`rounded-xl p-3.5 border transition-colors shadow-sm flex flex-col justify-between ${
+            isLight
+              ? 'bg-white border-[#e2e8f0] hover:border-[#16a34a]/50'
+              : 'bg-[#181c22] border-[#262b35] hover:border-[#2ca03a]/40'
+          }`}
+        >
+          <div
+            className={`flex items-center justify-between font-tabular-data text-[10px] uppercase font-bold ${
+              isLight ? 'text-[#475569]' : 'text-[#9ba3af]'
+            }`}
+          >
             <span className="truncate">IDENTIFICADORES ATIVOS</span>
-            <div className="w-6 h-6 rounded bg-[#2ca03a]/10 border border-[#2ca03a]/30 flex items-center justify-center">
-              <span className="material-symbols-outlined text-[#2ca03a] text-[15px]">badge</span>
+            <div
+              className={`w-6 h-6 rounded border flex items-center justify-center ${
+                isLight
+                  ? 'bg-[#dcfce7] border-[#86efac]'
+                  : 'bg-[#2ca03a]/10 border-[#2ca03a]/30'
+              }`}
+            >
+              <span
+                className={`material-symbols-outlined text-[15px] ${
+                  isLight ? 'text-[#16a34a]' : 'text-[#2ca03a]'
+                }`}
+              >
+                badge
+              </span>
             </div>
           </div>
           <div className="my-1.5">
             <div className="flex items-baseline gap-1">
-              <span className="font-tabular-data text-2xl font-bold text-[#dde3ed]">28</span>
-              <span className="font-tabular-data text-[10px] text-[#94a3b8]">Cadastrados</span>
+              <span
+                className={`font-tabular-data text-2xl font-bold ${
+                  isLight ? 'text-[#0f172a]' : 'text-[#dde3ed]'
+                }`}
+              >
+                28
+              </span>
+              <span
+                className={`font-tabular-data text-[10px] ${
+                  isLight ? 'text-[#475569]' : 'text-[#94a3b8]'
+                }`}
+              >
+                Cadastrados
+              </span>
             </div>
           </div>
-          <div className="flex justify-between font-tabular-data text-xs text-[#94a3b8]">
-            <span className="text-[#2ca03a] font-semibold">12 Vinculados</span>
-            <span className="text-[#dde3ed]">16 Reserva</span>
+          <div
+            className={`flex justify-between font-tabular-data text-xs ${
+              isLight ? 'text-[#475569]' : 'text-[#94a3b8]'
+            }`}
+          >
+            <span className={`font-semibold ${isLight ? 'text-[#16a34a]' : 'text-[#2ca03a]'}`}>
+              12 Vinculados
+            </span>
+            <span className={isLight ? 'text-[#0f172a]' : 'text-[#dde3ed]'}>16 Reserva</span>
           </div>
         </div>
 
-        <div className="bg-[#181c22] rounded-xl p-3.5 border border-[#262b35] hover:border-[#2ca03a]/40 transition-colors shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between text-[#9ba3af] font-tabular-data text-[10px] uppercase font-bold">
+        <div
+          className={`rounded-xl p-3.5 border transition-colors shadow-sm flex flex-col justify-between ${
+            isLight
+              ? 'bg-white border-[#e2e8f0] hover:border-[#16a34a]/50'
+              : 'bg-[#181c22] border-[#262b35] hover:border-[#2ca03a]/40'
+          }`}
+        >
+          <div
+            className={`flex items-center justify-between font-tabular-data text-[10px] uppercase font-bold ${
+              isLight ? 'text-[#475569]' : 'text-[#9ba3af]'
+            }`}
+          >
             <span className="truncate">ALERTA DE CONFIGURAÇÃO</span>
-            <div className="w-6 h-6 rounded bg-[#2ca03a]/10 border border-[#2ca03a]/30 flex items-center justify-center">
-              <span className="material-symbols-outlined text-[#2ca03a] text-[15px]">check_circle</span>
+            <div
+              className={`w-6 h-6 rounded border flex items-center justify-center ${
+                isLight
+                  ? 'bg-[#dcfce7] border-[#86efac]'
+                  : 'bg-[#2ca03a]/10 border-[#2ca03a]/30'
+              }`}
+            >
+              <span
+                className={`material-symbols-outlined text-[15px] ${
+                  isLight ? 'text-[#16a34a]' : 'text-[#2ca03a]'
+                }`}
+              >
+                check_circle
+              </span>
             </div>
           </div>
           <div className="my-1.5">
             <div className="flex items-baseline gap-1">
-              <span className="font-tabular-data text-2xl font-bold text-[#2ca03a]">0</span>
-              <span className="font-tabular-data text-[10px] text-[#2ca03a] font-semibold">
+              <span
+                className={`font-tabular-data text-2xl font-bold ${
+                  isLight ? 'text-[#16a34a]' : 'text-[#2ca03a]'
+                }`}
+              >
+                0
+              </span>
+              <span
+                className={`font-tabular-data text-[10px] font-semibold ${
+                  isLight ? 'text-[#16a34a]' : 'text-[#2ca03a]'
+                }`}
+              >
                 Pendências
               </span>
             </div>
           </div>
-          <div className="text-[#94a3b8] text-[11px] leading-tight">
-            Firmware <span className="font-tabular-data text-[#dde3ed] font-semibold">v4.8.2</span> em 35 veículos.
+          <div className={`text-[11px] leading-tight ${isLight ? 'text-[#475569]' : 'text-[#94a3b8]'}`}>
+            Firmware{' '}
+            <span className={`font-tabular-data font-semibold ${isLight ? 'text-[#0f172a]' : 'text-[#dde3ed]'}`}>
+              v4.8.2
+            </span>{' '}
+            em 35 veículos.
           </div>
         </div>
 
-        <div className="bg-[#181c22] rounded-xl p-3.5 border border-[#262b35] hover:border-[#2ca03a]/40 transition-colors shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between text-[#9ba3af] font-tabular-data text-[10px] uppercase font-bold">
+        <div
+          className={`rounded-xl p-3.5 border transition-colors shadow-sm flex flex-col justify-between ${
+            isLight
+              ? 'bg-white border-[#e2e8f0] hover:border-[#16a34a]/50'
+              : 'bg-[#181c22] border-[#262b35] hover:border-[#2ca03a]/40'
+          }`}
+        >
+          <div
+            className={`flex items-center justify-between font-tabular-data text-[10px] uppercase font-bold ${
+              isLight ? 'text-[#475569]' : 'text-[#9ba3af]'
+            }`}
+          >
             <span className="truncate">MARGEM DE TOLERÂNCIA</span>
-            <div className="w-6 h-6 rounded bg-[#ef4444]/10 border border-[#ef4444]/30 flex items-center justify-center">
-              <span className="material-symbols-outlined text-[#ef4444] text-[15px]">gavel</span>
+            <div
+              className={`w-6 h-6 rounded border flex items-center justify-center ${
+                isLight
+                  ? 'bg-[#fee2e2] border-[#fca5a5]'
+                  : 'bg-[#ef4444]/10 border-[#ef4444]/30'
+              }`}
+            >
+              <span
+                className={`material-symbols-outlined text-[15px] ${
+                  isLight ? 'text-[#dc2626]' : 'text-[#ef4444]'
+                }`}
+              >
+                gavel
+              </span>
             </div>
           </div>
           <div className="my-1.5">
             <div className="flex items-baseline gap-1">
-              <span className="font-tabular-data text-2xl font-bold text-[#ef4444]">0</span>
-              <span className="font-tabular-data text-xs text-[#94a3b8]">km/h (Zero)</span>
+              <span
+                className={`font-tabular-data text-2xl font-bold ${
+                  isLight ? 'text-[#dc2626]' : 'text-[#ef4444]'
+                }`}
+              >
+                0
+              </span>
+              <span
+                className={`font-tabular-data text-xs ${
+                  isLight ? 'text-[#475569]' : 'text-[#94a3b8]'
+                }`}
+              >
+                km/h (Zero)
+              </span>
             </div>
           </div>
-          <div className="text-[#94a3b8] text-[11px] leading-tight">
-            Excesso contabilizado a partir de <strong className="text-[#f4cf00] font-tabular-data">81 km/h</strong>.
+          <div className={`text-[11px] leading-tight ${isLight ? 'text-[#475569]' : 'text-[#94a3b8]'}`}>
+            Excesso contabilizado a partir de{' '}
+            <strong className={`font-tabular-data ${isLight ? 'text-[#b45309]' : 'text-[#f4cf00]'}`}>
+              81 km/h
+            </strong>
+            .
           </div>
         </div>
       </section>
 
       {/* 3. Abas de Navegação das Seções */}
-      <section className="bg-[#14171c] rounded-xl p-1.5 border border-[#262b35] shadow-sm overflow-x-auto scrollbar-none touch-scroll-x">
+      <section
+        className={`rounded-xl p-1.5 border shadow-sm overflow-x-auto scrollbar-none touch-scroll-x ${
+          isLight ? 'bg-white border-[#e2e8f0]' : 'bg-[#14171c] border-[#262b35]'
+        }`}
+      >
         <div className="flex items-center gap-1.5 min-w-max">
           <button
             type="button"
             onClick={() => setActiveTab('roads')}
             className={`px-3.5 py-2 rounded-lg text-xs font-semibold transition-all inline-flex items-center gap-2 cursor-pointer whitespace-nowrap shrink-0 min-h-[40px] ${
               activeTab === 'roads'
-                ? 'bg-[#1c2026] text-[#2ca03a] border border-[#2d333b] shadow-sm font-bold'
+                ? isLight
+                  ? 'bg-[#ecfdf5] text-[#15803d] border border-[#86efac] shadow-xs font-bold'
+                  : 'bg-[#1c2026] text-[#2ca03a] border border-[#2d333b] shadow-sm font-bold'
+                : isLight
+                ? 'bg-transparent text-[#475569] hover:text-[#0f172a] hover:bg-[#f1f5f9] border border-transparent'
                 : 'text-[#9ba3af] hover:text-white hover:bg-[#181c22]'
             }`}
           >
             <span className="material-symbols-outlined text-[17px]">signpost</span>
             <span>Limites por Rodovia & Trecho</span>
-            <span className="font-tabular-data text-[10px] px-1.5 py-0.2 rounded-full bg-[#2ca03a]/20 text-[#2ca03a] border border-[#2ca03a]/40 font-bold">
+            <span
+              className={`font-tabular-data text-[10px] px-1.5 py-0.2 rounded-full border font-bold ${
+                isLight
+                  ? 'bg-[#dcfce7] text-[#15803d] border-[#86efac]'
+                  : 'bg-[#2ca03a]/20 text-[#2ca03a] border-[#2ca03a]/40'
+              }`}
+            >
               {roadParams.length}
             </span>
           </button>
@@ -381,7 +609,11 @@ export default function AdminParamsScreen({
             onClick={() => setActiveTab('rules')}
             className={`px-3.5 py-2 rounded-lg text-xs font-semibold transition-all inline-flex items-center gap-2 cursor-pointer whitespace-nowrap shrink-0 min-h-[40px] ${
               activeTab === 'rules'
-                ? 'bg-[#1c2026] text-[#2ca03a] border border-[#2d333b] shadow-sm font-bold'
+                ? isLight
+                  ? 'bg-[#ecfdf5] text-[#15803d] border border-[#86efac] shadow-xs font-bold'
+                  : 'bg-[#1c2026] text-[#2ca03a] border border-[#2d333b] shadow-sm font-bold'
+                : isLight
+                ? 'bg-transparent text-[#475569] hover:text-[#0f172a] hover:bg-[#f1f5f9] border border-transparent'
                 : 'text-[#9ba3af] hover:text-white hover:bg-[#181c22]'
             }`}
           >
@@ -394,13 +626,23 @@ export default function AdminParamsScreen({
             onClick={() => setActiveTab('logs')}
             className={`px-3.5 py-2 rounded-lg text-xs font-semibold transition-all inline-flex items-center gap-2 cursor-pointer whitespace-nowrap shrink-0 min-h-[40px] ${
               activeTab === 'logs'
-                ? 'bg-[#1c2026] text-[#2ca03a] border border-[#2d333b] shadow-sm font-bold'
+                ? isLight
+                  ? 'bg-[#ecfdf5] text-[#15803d] border border-[#86efac] shadow-xs font-bold'
+                  : 'bg-[#1c2026] text-[#2ca03a] border border-[#2d333b] shadow-sm font-bold'
+                : isLight
+                ? 'bg-transparent text-[#475569] hover:text-[#0f172a] hover:bg-[#f1f5f9] border border-transparent'
                 : 'text-[#9ba3af] hover:text-white hover:bg-[#181c22]'
             }`}
           >
             <span className="material-symbols-outlined text-[17px]">security</span>
             <span>Logs do Sistema & Auditoria</span>
-            <span className="font-tabular-data text-[10px] px-1.5 py-0.2 rounded-full bg-[#2ca03a]/20 text-[#2ca03a] border border-[#2ca03a]/40 font-bold">
+            <span
+              className={`font-tabular-data text-[10px] px-1.5 py-0.2 rounded-full border font-bold ${
+                isLight
+                  ? 'bg-[#dcfce7] text-[#15803d] border-[#86efac]'
+                  : 'bg-[#2ca03a]/20 text-[#2ca03a] border-[#2ca03a]/40'
+              }`}
+            >
               {auditLogs.length}
             </span>
           </button>
@@ -410,13 +652,23 @@ export default function AdminParamsScreen({
             onClick={() => setActiveTab('vehicles')}
             className={`px-3.5 py-2 rounded-lg text-xs font-semibold transition-all inline-flex items-center gap-2 cursor-pointer whitespace-nowrap shrink-0 min-h-[40px] ${
               activeTab === 'vehicles'
-                ? 'bg-[#1c2026] text-[#2ca03a] border border-[#2d333b] shadow-sm font-bold'
+                ? isLight
+                  ? 'bg-[#ecfdf5] text-[#15803d] border border-[#86efac] shadow-xs font-bold'
+                  : 'bg-[#1c2026] text-[#2ca03a] border border-[#2d333b] shadow-sm font-bold'
+                : isLight
+                ? 'bg-transparent text-[#475569] hover:text-[#0f172a] hover:bg-[#f1f5f9] border border-transparent'
                 : 'text-[#9ba3af] hover:text-white hover:bg-[#181c22]'
             }`}
           >
             <span className="material-symbols-outlined text-[17px]">directions_car</span>
             <span>Vínculo Placa x Categoria</span>
-            <span className="font-tabular-data text-[10px] px-1.5 py-0.2 rounded-full bg-[#2ca03a]/20 text-[#2ca03a] border border-[#2ca03a]/40 font-bold">
+            <span
+              className={`font-tabular-data text-[10px] px-1.5 py-0.2 rounded-full border font-bold ${
+                isLight
+                  ? 'bg-[#dcfce7] text-[#15803d] border-[#86efac]'
+                  : 'bg-[#2ca03a]/20 text-[#2ca03a] border-[#2ca03a]/40'
+              }`}
+            >
               {vehicles.length}
             </span>
           </button>
@@ -427,37 +679,79 @@ export default function AdminParamsScreen({
 
       {/* ABA 1: Tabela de Parametrização por Rodovia */}
       {activeTab === 'roads' && (
-        <section className="bg-[#14171c] rounded-xl p-4 sm:p-5 border border-[#262b35] shadow-sm flex flex-col gap-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#262b35]">
+        <section
+          className={`rounded-xl p-4 sm:p-5 border shadow-sm flex flex-col gap-4 ${
+            isLight ? 'bg-white border-[#e2e8f0]' : 'bg-[#14171c] border-[#262b35]'
+          }`}
+        >
+          <div
+            className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b ${
+              isLight ? 'border-[#e2e8f0]' : 'border-[#262b35]'
+            }`}
+          >
             <div>
               <div className="flex items-center gap-2">
                 <div className="w-2.5 h-2.5 rounded-full bg-[#2ca03a]" />
-                <h2 className="font-headline-md text-sm sm:text-base font-bold text-[#dde3ed]">
+                <h2
+                  className={`font-headline-md text-sm sm:text-base font-bold ${
+                    isLight ? 'text-[#0f172a]' : 'text-[#dde3ed]'
+                  }`}
+                >
                   Tabela de Parametrização por Rodovia & Categoria Veicular
                 </h2>
               </div>
-              <p className="font-body-sm text-xs text-[#94a3b8] mt-1">
+              <p
+                className={`font-body-sm text-xs mt-1 ${
+                  isLight ? 'text-[#475569]' : 'text-[#94a3b8]'
+                }`}
+              >
                 Definição do limite máximo regulamentar aceito e regras de gatilho por trecho rodoviário.
               </p>
             </div>
             <button
               onClick={() => onOpenRoadModal()}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded bg-[#181c22] hover:bg-[#1c2026] text-[#dde3ed] hover:text-white transition-all text-xs border border-[#262b35] font-semibold cursor-pointer shadow-sm self-start sm:self-auto"
+              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded transition-all text-xs border font-semibold cursor-pointer shadow-sm self-start sm:self-auto ${
+                isLight
+                  ? 'bg-[#f8fafc] hover:bg-[#f1f5f9] text-[#0f172a] border-[#cbd5e1]'
+                  : 'bg-[#181c22] hover:bg-[#1c2026] text-[#dde3ed] hover:text-white border-[#262b35]'
+              }`}
               type="button"
             >
-              <span className="material-symbols-outlined text-[#2ca03a] text-[18px]">add</span>
+              <span
+                className={`material-symbols-outlined text-[18px] ${
+                  isLight ? 'text-[#16a34a]' : 'text-[#2ca03a]'
+                }`}
+              >
+                add
+              </span>
               <span>Adicionar Trecho</span>
             </button>
           </div>
 
-          <div className="overflow-x-auto rounded-lg bg-[#101317] border border-[#262b35] scrollbar-visible touch-scroll-x">
-            <div className="sm:hidden flex items-center gap-1.5 px-3 py-1.5 text-[11px] text-[#94a3b8] italic border-b border-[#262b35]/40">
+          <div
+            className={`overflow-x-auto rounded-lg border scrollbar-visible touch-scroll-x ${
+              isLight ? 'bg-white border-[#e2e8f0]' : 'bg-[#101317] border-[#262b35]'
+            }`}
+          >
+            <div
+              className={`sm:hidden flex items-center gap-1.5 px-3 py-1.5 text-[11px] italic border-b ${
+                isLight
+                  ? 'text-[#475569] border-[#e2e8f0]'
+                  : 'text-[#94a3b8] border-[#262b35]/40'
+              }`}
+            >
               <span className="material-symbols-outlined text-[14px]">swipe</span>
               <span>Deslize horizontalmente para conferir todos os limites</span>
             </div>
             <table className="w-full text-left font-tabular-data text-xs border-collapse min-w-[850px] whitespace-nowrap">
               <thead>
-                <tr className="bg-[#181c22] text-[#94a3b8] text-[10px] uppercase border-b border-[#262b35]">
+                <tr
+                  className={`text-[10px] uppercase border-b ${
+                    isLight
+                      ? 'bg-[#f8fafc] text-[#475569] border-[#e2e8f0]'
+                      : 'bg-[#181c22] text-[#94a3b8] border-[#262b35]'
+                  }`}
+                >
                   <th className="py-3 px-3.5 text-left">Rodovia / Trecho</th>
                   <th className="py-3 px-3.5 text-left">Perfil da Via</th>
                   <th className="py-3 px-2 text-center">Cavalo 6x4</th>
@@ -469,42 +763,89 @@ export default function AdminParamsScreen({
                   <th className="py-3 px-3.5 text-right">Ação</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#262b35]">
+              <tbody className={`divide-y ${isLight ? 'divide-[#e2e8f0]' : 'divide-[#262b35]'}`}>
                 {roadParams.map((param) => (
-                  <tr key={param.id} className="hover:bg-[#181c22] transition-colors">
-                    <td className="py-3 px-3.5 font-semibold text-[#dde3ed] text-left">
+                  <tr
+                    key={param.id}
+                    className={`transition-colors ${
+                      isLight ? 'bg-white hover:bg-[#f8fafc]' : 'hover:bg-[#181c22]'
+                    }`}
+                  >
+                    <td
+                      className={`py-3 px-3.5 font-semibold text-left ${
+                        isLight ? 'text-[#0f172a]' : 'text-[#dde3ed]'
+                      }`}
+                    >
                       <div className="flex items-center gap-1.5">
                         <span className="w-2 h-2 rounded-full bg-[#2ca03a]" />
                         <span>{param.road}</span>
                       </div>
-                      <span className="text-[#94a3b8] text-[11px] block pl-3.5 mt-0.5">
+                      <span
+                        className={`text-[11px] block pl-3.5 mt-0.5 ${
+                          isLight ? 'text-[#475569]' : 'text-[#94a3b8]'
+                        }`}
+                      >
                         {param.section}
                       </span>
                     </td>
-                    <td className="py-3 px-3.5 text-[#94a3b8] text-xs text-left">
+                    <td
+                      className={`py-3 px-3.5 text-xs text-left ${
+                        isLight ? 'text-[#475569]' : 'text-[#94a3b8]'
+                      }`}
+                    >
                       {param.profile}
                     </td>
-                    <td className="py-3 px-2 text-center font-bold text-[#dde3ed]">
+                    <td
+                      className={`py-3 px-2 text-center font-bold ${
+                        isLight ? 'text-[#0f172a]' : 'text-[#dde3ed]'
+                      }`}
+                    >
                       {param.cavaloLimit} km/h
                     </td>
-                    <td className="py-3 px-2 text-center font-bold text-[#dde3ed]">
+                    <td
+                      className={`py-3 px-2 text-center font-bold ${
+                        isLight ? 'text-[#0f172a]' : 'text-[#dde3ed]'
+                      }`}
+                    >
                       {param.bitremLimit} km/h
                     </td>
-                    <td className="py-3 px-2 text-center text-[#94a3b8]">
+                    <td
+                      className={`py-3 px-2 text-center ${
+                        isLight ? 'text-[#475569]' : 'text-[#94a3b8]'
+                      }`}
+                    >
                       {param.leveLimit} km/h
                     </td>
                     <td className="py-3 px-2 text-center">
-                      <span className="px-2 py-0.5 rounded bg-[#f4cf00]/10 border border-[#f4cf00]/30 text-[#f4cf00] font-semibold text-[11px]">
+                      <span
+                        className={`px-2 py-0.5 rounded border font-semibold text-[11px] ${
+                          isLight
+                            ? 'bg-[#fef3c7] border-[#fcd34d] text-[#b45309]'
+                            : 'bg-[#f4cf00]/10 border-[#f4cf00]/30 text-[#f4cf00]'
+                        }`}
+                      >
                         {param.trigger1}
                       </span>
                     </td>
                     <td className="py-3 px-2 text-center">
-                      <span className="px-2 py-0.5 rounded bg-[#ef4444]/10 border border-[#ef4444]/30 text-[#ef4444] font-semibold text-[11px]">
+                      <span
+                        className={`px-2 py-0.5 rounded border font-semibold text-[11px] ${
+                          isLight
+                            ? 'bg-[#fee2e2] border-[#fca5a5] text-[#dc2626]'
+                            : 'bg-[#ef4444]/10 border-[#ef4444]/30 text-[#ef4444]'
+                        }`}
+                      >
                         {param.trigger2}
                       </span>
                     </td>
                     <td className="py-3 px-2 text-center">
-                      <span className="font-tabular-data text-[10px] px-2 py-0.5 rounded bg-[#2ca03a]/10 text-[#2ca03a] border border-[#2ca03a]/30 font-bold">
+                      <span
+                        className={`font-tabular-data text-[10px] px-2 py-0.5 rounded border font-bold ${
+                          isLight
+                            ? 'bg-[#dcfce7] text-[#15803d] border-[#86efac]'
+                            : 'bg-[#2ca03a]/10 text-[#2ca03a] border-[#2ca03a]/30'
+                        }`}
+                      >
                         {param.status}
                       </span>
                     </td>
@@ -512,7 +853,11 @@ export default function AdminParamsScreen({
                       <button
                         type="button"
                         onClick={() => onOpenRoadModal(param)}
-                        className="p-1.5 hover:bg-[#1c2026] rounded text-[#94a3b8] hover:text-[#dde3ed] transition-colors inline-flex items-center cursor-pointer"
+                        className={`p-1.5 rounded transition-colors inline-flex items-center cursor-pointer ${
+                          isLight
+                            ? 'text-[#64748b] hover:text-[#0f172a] hover:bg-[#f1f5f9]'
+                            : 'text-[#94a3b8] hover:text-[#dde3ed] hover:bg-[#1c2026]'
+                        }`}
                         title="Editar"
                       >
                         <span className="material-symbols-outlined text-[18px]">edit</span>
@@ -528,16 +873,34 @@ export default function AdminParamsScreen({
 
       {/* ABA 2: Regras de Parâmetro e Bonificação de Condutores */}
       {activeTab === 'rules' && (
-        <section className="bg-[#14171c] rounded-xl p-4 sm:p-5 border border-[#262b35] shadow-sm flex flex-col gap-5">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#262b35]">
+        <section
+          className={`rounded-xl p-4 sm:p-5 border shadow-sm flex flex-col gap-5 ${
+            isLight ? 'bg-white border-[#e2e8f0]' : 'bg-[#14171c] border-[#262b35]'
+          }`}
+        >
+          <div
+            className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b ${
+              isLight ? 'border-[#e2e8f0]' : 'border-[#262b35]'
+            }`}
+          >
             <div className="flex items-center gap-2">
               <div className="w-2.5 h-2.5 rounded-full bg-[#2ca03a]" />
-              <h2 className="font-headline-md text-sm sm:text-base font-bold text-[#dde3ed]">
+              <h2
+                className={`font-headline-md text-sm sm:text-base font-bold ${
+                  isLight ? 'text-[#0f172a]' : 'text-[#dde3ed]'
+                }`}
+              >
                 Regras de Parâmetro e Bonificação de Condutores
               </h2>
             </div>
             <div className="flex items-center gap-2">
-              <span className="font-tabular-data text-[10px] text-[#2ca03a] font-bold px-2 py-0.5 rounded bg-[#2ca03a]/10 border border-[#2ca03a]/30">
+              <span
+                className={`font-tabular-data text-[10px] font-bold px-2 py-0.5 rounded border ${
+                  isLight
+                    ? 'bg-[#dcfce7] text-[#15803d] border-[#86efac]'
+                    : 'bg-[#2ca03a]/10 text-[#2ca03a] border-[#2ca03a]/30'
+                }`}
+              >
                 REGULAMENTO VIGENTE CCO
               </span>
             </div>
@@ -545,127 +908,283 @@ export default function AdminParamsScreen({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Card 1: Excesso Pontual */}
-            <div className="bg-[#181c22] rounded-xl p-4 flex flex-col justify-between gap-3 border border-[#262b35] shadow-sm">
+            <div
+              className={`rounded-xl p-4 flex flex-col justify-between gap-3 border shadow-sm ${
+                isLight ? 'bg-white border-[#e2e8f0]' : 'bg-[#181c22] border-[#262b35]'
+              }`}
+            >
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <span className="font-tabular-data text-[10px] text-[#94a3b8] uppercase font-bold tracking-wider">
+                  <span
+                    className={`font-tabular-data text-[10px] uppercase font-bold tracking-wider ${
+                      isLight ? 'text-[#475569]' : 'text-[#94a3b8]'
+                    }`}
+                  >
                     REGRA DE EXCESSO PONTUAL
                   </span>
-                  <p className="text-sm text-[#dde3ed] font-semibold mt-1">
+                  <p
+                    className={`text-sm font-semibold mt-1 ${
+                      isLight ? 'text-[#0f172a]' : 'text-[#dde3ed]'
+                    }`}
+                  >
                     Excesso Pontual &gt; 80 km/h
                   </p>
-                  <p className="text-xs text-[#94a3b8] mt-1 leading-relaxed">
+                  <p
+                    className={`text-xs mt-1 leading-relaxed ${
+                      isLight ? 'text-[#475569]' : 'text-[#94a3b8]'
+                    }`}
+                  >
                     Qualquer registro acima do teto estipulado desclassifica a pontuação e bonificação do condutor no ciclo.
                   </p>
                 </div>
-                <span className="font-tabular-data text-[10px] px-2 py-0.5 rounded bg-[#2ca03a]/10 text-[#2ca03a] border border-[#2ca03a]/30 font-bold shrink-0">
+                <span
+                  className={`font-tabular-data text-[10px] px-2 py-0.5 rounded border font-bold shrink-0 ${
+                    isLight
+                      ? 'bg-[#dcfce7] text-[#15803d] border-[#86efac]'
+                      : 'bg-[#2ca03a]/10 text-[#2ca03a] border-[#2ca03a]/30'
+                  }`}
+                >
                   ATIVO
                 </span>
               </div>
-              <div className="font-tabular-data text-[11px] text-[#ef4444] bg-[#ef4444]/10 border border-[#ef4444]/30 px-2.5 py-1.5 rounded-lg inline-flex items-center gap-1.5 font-bold">
+              <div
+                className={`font-tabular-data text-[11px] border px-2.5 py-1.5 rounded-lg inline-flex items-center gap-1.5 font-bold ${
+                  isLight
+                    ? 'bg-[#fee2e2] text-[#dc2626] border-[#fca5a5]'
+                    : 'bg-[#ef4444]/10 text-[#ef4444] border-[#ef4444]/30'
+                }`}
+              >
                 <span className="material-symbols-outlined text-[16px]">shield</span>
                 TOLERÂNCIA ZERO CONFIGURADA
               </div>
             </div>
 
             {/* Card 2: Horas Mínimas de Condução */}
-            <div className="bg-[#181c22] rounded-xl p-4 flex flex-col justify-between gap-3 border border-[#262b35] shadow-sm">
+            <div
+              className={`rounded-xl p-4 flex flex-col justify-between gap-3 border shadow-sm ${
+                isLight ? 'bg-white border-[#e2e8f0]' : 'bg-[#181c22] border-[#262b35]'
+              }`}
+            >
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <span className="font-tabular-data text-[10px] text-[#94a3b8] uppercase font-bold tracking-wider">
+                  <span
+                    className={`font-tabular-data text-[10px] uppercase font-bold tracking-wider ${
+                      isLight ? 'text-[#475569]' : 'text-[#94a3b8]'
+                    }`}
+                  >
                     HORAS MÍNIMAS DE CONDUÇÃO
                   </span>
-                  <p className="text-sm text-[#dde3ed] font-semibold mt-1">
+                  <p
+                    className={`text-sm font-semibold mt-1 ${
+                      isLight ? 'text-[#0f172a]' : 'text-[#dde3ed]'
+                    }`}
+                  >
                     {minHours} horas / ciclo
                   </p>
-                  <p className="text-xs text-[#94a3b8] mt-1 leading-relaxed">
+                  <p
+                    className={`text-xs mt-1 leading-relaxed ${
+                      isLight ? 'text-[#475569]' : 'text-[#94a3b8]'
+                    }`}
+                  >
                     Carga horária mínima aferida via telemetria e leitura contínua de CAN bus para elegibilidade.
                   </p>
                 </div>
-                <div className="w-8 h-8 rounded-lg bg-[#2ca03a]/10 border border-[#2ca03a]/30 flex items-center justify-center shrink-0">
-                  <span className="material-symbols-outlined text-[#2ca03a] text-[20px]">timer</span>
+                <div
+                  className={`w-8 h-8 rounded-lg border flex items-center justify-center shrink-0 ${
+                    isLight
+                      ? 'bg-[#dcfce7] border-[#86efac]'
+                      : 'bg-[#2ca03a]/10 border-[#2ca03a]/30'
+                  }`}
+                >
+                  <span
+                    className={`material-symbols-outlined text-[20px] ${
+                      isLight ? 'text-[#16a34a]' : 'text-[#2ca03a]'
+                    }`}
+                  >
+                    timer
+                  </span>
                 </div>
               </div>
-              <div className="flex items-center gap-2.5 font-tabular-data text-xs bg-[#12151a] p-2 rounded-lg border border-[#262b35]">
-                <span className="text-[#94a3b8] font-semibold">Parâmetro:</span>
+              <div
+                className={`flex items-center gap-2.5 font-tabular-data text-xs p-2 rounded-lg border ${
+                  isLight
+                    ? 'bg-[#f1f5f9] border-[#e2e8f0]'
+                    : 'bg-[#12151a] border-[#262b35]'
+                }`}
+              >
+                <span className={`font-semibold ${isLight ? 'text-[#475569]' : 'text-[#94a3b8]'}`}>
+                  Parâmetro:
+                </span>
                 <input
                   type="number"
                   min={1}
                   max={400}
                   value={minHours}
                   onChange={(e) => setMinHours(Math.max(1, Number(e.target.value) || 0))}
-                  className="w-24 bg-[#181c22] text-[#dde3ed] rounded px-2.5 py-1 font-bold text-center border border-[#262b35] focus:outline-none focus:border-[#2ca03a] transition-colors"
+                  className={`w-24 rounded px-2.5 py-1 font-bold text-center border focus:outline-none transition-colors ${
+                    isLight
+                      ? 'bg-white text-[#0f172a] border-[#cbd5e1] focus:border-[#16a34a]'
+                      : 'bg-[#181c22] text-[#dde3ed] border-[#262b35] focus:border-[#2ca03a]'
+                  }`}
                 />
-                <span className="text-[#94a3b8]">horas / ciclo</span>
+                <span className={isLight ? 'text-[#475569]' : 'text-[#94a3b8]'}>
+                  horas / ciclo
+                </span>
               </div>
             </div>
 
             {/* Card 3: Exclusão Sem Identificação */}
-            <div className="bg-[#181c22] rounded-xl p-4 flex flex-col justify-between gap-3 border border-[#262b35] shadow-sm">
+            <div
+              className={`rounded-xl p-4 flex flex-col justify-between gap-3 border shadow-sm ${
+                isLight ? 'bg-white border-[#e2e8f0]' : 'bg-[#181c22] border-[#262b35]'
+              }`}
+            >
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <span className="font-tabular-data text-[10px] text-[#94a3b8] uppercase font-bold tracking-wider">
+                  <span
+                    className={`font-tabular-data text-[10px] uppercase font-bold tracking-wider ${
+                      isLight ? 'text-[#475569]' : 'text-[#94a3b8]'
+                    }`}
+                  >
                     SEGURANÇA DE IDENTIFICAÇÃO
                   </span>
-                  <p className="text-sm text-[#dde3ed] font-semibold mt-1">
+                  <p
+                    className={`text-sm font-semibold mt-1 ${
+                      isLight ? 'text-[#0f172a]' : 'text-[#dde3ed]'
+                    }`}
+                  >
                     Exclusão Sem Identificação
                   </p>
-                  <p className="text-xs text-[#94a3b8] mt-1 leading-relaxed">
+                  <p
+                    className={`text-xs mt-1 leading-relaxed ${
+                      isLight ? 'text-[#475569]' : 'text-[#94a3b8]'
+                    }`}
+                  >
                     Condução sem chave iButton vinculada é glosada integralmente do cômputo da bonificação.
                   </p>
                 </div>
-                <span className="font-tabular-data text-[10px] px-2 py-0.5 rounded bg-[#2ca03a]/10 text-[#2ca03a] border border-[#2ca03a]/30 font-bold shrink-0">
+                <span
+                  className={`font-tabular-data text-[10px] px-2 py-0.5 rounded border font-bold shrink-0 ${
+                    isLight
+                      ? 'bg-[#dcfce7] text-[#15803d] border-[#86efac]'
+                      : 'bg-[#2ca03a]/10 text-[#2ca03a] border-[#2ca03a]/30'
+                  }`}
+                >
                   ATIVO
                 </span>
               </div>
-              <div className="font-tabular-data text-[11px] text-[#2ca03a] bg-[#2ca03a]/10 border border-[#2ca03a]/30 px-2.5 py-1.5 rounded-lg inline-flex items-center gap-1.5 font-bold">
+              <div
+                className={`font-tabular-data text-[11px] border px-2.5 py-1.5 rounded-lg inline-flex items-center gap-1.5 font-bold ${
+                  isLight
+                    ? 'bg-[#dcfce7] text-[#15803d] border-[#86efac]'
+                    : 'bg-[#2ca03a]/10 text-[#2ca03a] border-[#2ca03a]/30'
+                }`}
+              >
                 <span className="material-symbols-outlined text-[16px]">lock</span>
                 REGRA EM VIGOR
               </div>
             </div>
 
             {/* Card 4: Valor Base da Bonificação */}
-            <div className="bg-[#181c22] rounded-xl p-4 flex flex-col justify-between gap-3 border border-[#262b35] shadow-sm">
+            <div
+              className={`rounded-xl p-4 flex flex-col justify-between gap-3 border shadow-sm ${
+                isLight ? 'bg-white border-[#e2e8f0]' : 'bg-[#181c22] border-[#262b35]'
+              }`}
+            >
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <span className="font-tabular-data text-[10px] text-[#94a3b8] uppercase font-bold tracking-wider">
+                  <span
+                    className={`font-tabular-data text-[10px] uppercase font-bold tracking-wider ${
+                      isLight ? 'text-[#475569]' : 'text-[#94a3b8]'
+                    }`}
+                  >
                     VALOR BASE DA BONIFICAÇÃO
                   </span>
-                  <p className="text-sm text-[#dde3ed] font-semibold mt-1">
+                  <p
+                    className={`text-sm font-semibold mt-1 ${
+                      isLight ? 'text-[#0f172a]' : 'text-[#dde3ed]'
+                    }`}
+                  >
                     R$ {baseBonus} / condutor
                   </p>
-                  <p className="text-xs text-[#94a3b8] mt-1 leading-relaxed">
+                  <p
+                    className={`text-xs mt-1 leading-relaxed ${
+                      isLight ? 'text-[#475569]' : 'text-[#94a3b8]'
+                    }`}
+                  >
                     Repasse mensal calculado diretamente pelo fechamento executivo CCO para condutores aptos.
                   </p>
                 </div>
-                <div className="w-8 h-8 rounded-lg bg-[#f4cf00]/10 border border-[#f4cf00]/30 flex items-center justify-center shrink-0">
-                  <span className="material-symbols-outlined text-[#f4cf00] text-[20px]">
+                <div
+                  className={`w-8 h-8 rounded-lg border flex items-center justify-center shrink-0 ${
+                    isLight
+                      ? 'bg-[#fef3c7] border-[#fcd34d]'
+                      : 'bg-[#f4cf00]/10 border-[#f4cf00]/30'
+                  }`}
+                >
+                  <span
+                    className={`material-symbols-outlined text-[20px] ${
+                      isLight ? 'text-[#d97706]' : 'text-[#f4cf00]'
+                    }`}
+                  >
                     payments
                   </span>
                 </div>
               </div>
-              <div className="flex items-center gap-2.5 font-tabular-data text-xs bg-[#12151a] p-2 rounded-lg border border-[#262b35]">
-                <span className="text-[#94a3b8] font-semibold">Valor Base:</span>
+              <div
+                className={`flex items-center gap-2.5 font-tabular-data text-xs p-2 rounded-lg border ${
+                  isLight
+                    ? 'bg-[#f1f5f9] border-[#e2e8f0]'
+                    : 'bg-[#12151a] border-[#262b35]'
+                }`}
+              >
+                <span className={`font-semibold ${isLight ? 'text-[#475569]' : 'text-[#94a3b8]'}`}>
+                  Valor Base:
+                </span>
                 <input
                   type="text"
                   value={baseBonus}
                   onChange={(e) => setBaseBonus(e.target.value)}
                   placeholder="Ex: 1.200,00"
-                  className="w-32 bg-[#181c22] text-[#2ca03a] font-bold rounded px-2.5 py-1 text-center border border-[#262b35] focus:outline-none focus:border-[#2ca03a] transition-colors"
+                  className={`w-32 font-bold rounded px-2.5 py-1 text-center border focus:outline-none transition-colors ${
+                    isLight
+                      ? 'bg-white text-[#15803d] border-[#cbd5e1] focus:border-[#16a34a]'
+                      : 'bg-[#181c22] text-[#2ca03a] border-[#262b35] focus:border-[#2ca03a]'
+                  }`}
                 />
-                <span className="text-[#94a3b8]">BRL (Reais)</span>
+                <span className={isLight ? 'text-[#475569]' : 'text-[#94a3b8]'}>
+                  BRL (Reais)
+                </span>
               </div>
             </div>
           </div>
 
           {/* Action Footer dedicado para salvar diretamente as regras */}
-          <div className="p-3.5 bg-[#0c1017] rounded-xl border border-[#262b35] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs mt-2">
-            <div className="flex items-center gap-2 text-[#94a3b8]">
-              <span className="material-symbols-outlined text-[#2ca03a] text-[18px]">info</span>
+          <div
+            className={`p-3.5 rounded-xl border flex flex-col sm:flex-row items-center justify-between gap-3 text-xs mt-2 ${
+              isLight
+                ? 'bg-[#f8fafc] border-[#e2e8f0]'
+                : 'bg-[#0c1017] border-[#262b35]'
+            }`}
+          >
+            <div className={`flex items-center gap-2 ${isLight ? 'text-[#475569]' : 'text-[#94a3b8]'}`}>
+              <span
+                className={`material-symbols-outlined text-[18px] ${
+                  isLight ? 'text-[#16a34a]' : 'text-[#2ca03a]'
+                }`}
+              >
+                info
+              </span>
               <span>
                 Parâmetros vigentes:{' '}
-                <strong className="text-white font-tabular-data">{minHours}h mínimas</strong> e{' '}
-                <strong className="text-[#34b344] font-tabular-data">R$ {baseBonus}</strong> de bonificação base.
+                <strong className={`font-tabular-data ${isLight ? 'text-[#0f172a]' : 'text-white'}`}>
+                  {minHours}h mínimas
+                </strong>{' '}
+                e{' '}
+                <strong className={`font-tabular-data ${isLight ? 'text-[#15803d]' : 'text-[#34b344]'}`}>
+                  R$ {baseBonus}
+                </strong>{' '}
+                de bonificação base.
               </span>
             </div>
 
@@ -700,28 +1219,64 @@ export default function AdminParamsScreen({
 
       {/* ABA 3: Trilha de Auditoria & Logs de Parametrização */}
       {activeTab === 'logs' && (
-        <section className="bg-[#14171c] rounded-xl p-4 sm:p-5 border border-[#262b35] shadow-sm flex flex-col gap-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#262b35]">
+        <section
+          className={`rounded-xl p-4 sm:p-5 border shadow-sm flex flex-col gap-4 ${
+            isLight ? 'bg-white border-[#e2e8f0]' : 'bg-[#14171c] border-[#262b35]'
+          }`}
+        >
+          <div
+            className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b ${
+              isLight ? 'border-[#e2e8f0]' : 'border-[#262b35]'
+            }`}
+          >
             <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-[#2ca03a] text-[20px]">
+              <span
+                className={`material-symbols-outlined text-[20px] ${
+                  isLight ? 'text-[#16a34a]' : 'text-[#2ca03a]'
+                }`}
+              >
                 security
               </span>
-              <h2 className="font-headline-md text-sm sm:text-base font-bold text-[#dde3ed]">
+              <h2
+                className={`font-headline-md text-sm sm:text-base font-bold ${
+                  isLight ? 'text-[#0f172a]' : 'text-[#dde3ed]'
+                }`}
+              >
                 Trilha de Auditoria & Logs de Parametrização
               </h2>
-              <span className="font-tabular-data text-[11px] text-[#94a3b8] hidden sm:inline">
+              <span
+                className={`font-tabular-data text-[11px] hidden sm:inline ${
+                  isLight ? 'text-[#475569]' : 'text-[#94a3b8]'
+                }`}
+              >
                 ({auditLogs.length} {auditLogs.length === 1 ? 'registro' : 'registros'})
               </span>
             </div>
-            <span className="font-tabular-data text-[10px] text-[#2ca03a] font-bold px-2 py-0.5 rounded bg-[#2ca03a]/10 border border-[#2ca03a]/30 self-start sm:self-auto">
+            <span
+              className={`font-tabular-data text-[10px] font-bold px-2 py-0.5 rounded border self-start sm:self-auto ${
+                isLight
+                  ? 'bg-[#dcfce7] text-[#15803d] border-[#86efac]'
+                  : 'bg-[#2ca03a]/10 text-[#2ca03a] border-[#2ca03a]/30'
+              }`}
+            >
               REGISTRO DE AUDITORIA CCO
             </span>
           </div>
 
-          <div className="overflow-x-auto rounded-lg bg-[#101317] border border-[#262b35] scrollbar-visible touch-scroll-x">
+          <div
+            className={`overflow-x-auto rounded-lg border scrollbar-visible touch-scroll-x ${
+              isLight ? 'bg-white border-[#e2e8f0]' : 'bg-[#101317] border-[#262b35]'
+            }`}
+          >
             <table className="w-full min-w-[750px] text-left font-tabular-data text-xs border-collapse whitespace-nowrap">
               <thead>
-                <tr className="bg-[#181c22] text-[#94a3b8] text-[10px] uppercase border-b border-[#262b35]">
+                <tr
+                  className={`text-[10px] uppercase border-b ${
+                    isLight
+                      ? 'bg-[#f8fafc] text-[#475569] border-[#e2e8f0]'
+                      : 'bg-[#181c22] text-[#94a3b8] border-[#262b35]'
+                  }`}
+                >
                   <th className="py-3 px-3.5">Data / Hora</th>
                   <th className="py-3 px-3.5">Operador / Usuário</th>
                   <th className="py-3 px-3.5">Ação Realizada</th>
@@ -729,29 +1284,63 @@ export default function AdminParamsScreen({
                   <th className="py-3 px-3.5 text-right">Hash SHA-256</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#262b35]">
+              <tbody className={`divide-y ${isLight ? 'divide-[#e2e8f0]' : 'divide-[#262b35]'}`}>
                 {auditLogs.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-6 text-center text-[#94a3b8] italic">
+                    <td
+                      colSpan={5}
+                      className={`py-6 text-center italic ${
+                        isLight ? 'text-[#475569]' : 'text-[#94a3b8]'
+                      }`}
+                    >
                       Nenhum registro de auditoria gravado no momento.
                     </td>
                   </tr>
                 ) : (
                   auditLogs.map((log) => (
-                    <tr key={log.id} className="hover:bg-[#181c22] transition-colors">
-                      <td className="py-3 px-3.5 text-[#dde3ed] font-semibold">{log.date}</td>
-                      <td className="py-3 px-3.5 text-[#dde3ed]">
+                    <tr
+                      key={log.id}
+                      className={`transition-colors ${
+                        isLight ? 'bg-white hover:bg-[#f8fafc]' : 'hover:bg-[#181c22]'
+                      }`}
+                    >
+                      <td
+                        className={`py-3 px-3.5 font-semibold ${
+                          isLight ? 'text-[#0f172a]' : 'text-[#dde3ed]'
+                        }`}
+                      >
+                        {log.date}
+                      </td>
+                      <td className={`py-3 px-3.5 ${isLight ? 'text-[#0f172a]' : 'text-[#dde3ed]'}`}>
                         <div className="flex items-center gap-1.5">
-                          <span className="material-symbols-outlined text-[#2ca03a] text-[16px]">
+                          <span
+                            className={`material-symbols-outlined text-[16px] ${
+                              isLight ? 'text-[#16a34a]' : 'text-[#2ca03a]'
+                            }`}
+                          >
                             admin_panel_settings
                           </span>
                           <span>{log.operator}</span>
                         </div>
                       </td>
-                      <td className="py-3 px-3.5 text-[#9ba3af]">{log.action}</td>
-                      <td className="py-3 px-3.5 text-center text-[#94a3b8]">{log.ip}</td>
-                      <td className="py-3 px-3.5 text-right text-[#9ba3af]">
-                        <span className="bg-[#181c22] border border-[#262b35] text-[#2ca03a] font-tabular-data px-2 py-0.5 rounded text-[10px]">
+                      <td className={`py-3 px-3.5 ${isLight ? 'text-[#475569]' : 'text-[#9ba3af]'}`}>
+                        {log.action}
+                      </td>
+                      <td
+                        className={`py-3 px-3.5 text-center ${
+                          isLight ? 'text-[#475569]' : 'text-[#94a3b8]'
+                        }`}
+                      >
+                        {log.ip}
+                      </td>
+                      <td className="py-3 px-3.5 text-right">
+                        <span
+                          className={`border font-tabular-data px-2 py-0.5 rounded text-[10px] ${
+                            isLight
+                              ? 'bg-[#f0fdf4] border-[#bbf7d0] text-[#15803d]'
+                              : 'bg-[#181c22] border-[#262b35] text-[#2ca03a]'
+                          }`}
+                        >
                           {log.hash}
                         </span>
                       </td>
@@ -762,15 +1351,30 @@ export default function AdminParamsScreen({
             </table>
           </div>
 
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 text-[#94a3b8] text-[11px] border-t border-[#262b35]/40">
+          <div
+            className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 text-[11px] border-t ${
+              isLight
+                ? 'text-[#475569] border-[#e2e8f0]'
+                : 'text-[#94a3b8] border-[#262b35]/40'
+            }`}
+          >
             <div className="flex items-center gap-1.5">
-              <span className="material-symbols-outlined text-[#2ca03a] text-[15px]">verified</span>
+              <span
+                className={`material-symbols-outlined text-[15px] ${
+                  isLight ? 'text-[#16a34a]' : 'text-[#2ca03a]'
+                }`}
+              >
+                verified
+              </span>
               <span className="font-tabular-data uppercase tracking-wider text-[10px]">
                 AUDITORIA OPERACIONAL CASAGRANDE: PARÂMETROS CRIPTOGRAFADOS E ASSINADOS DIGITALMENTE (SHA-256)
               </span>
             </div>
             <div className="font-tabular-data text-[10px]">
-              Versão: <span className="text-[#2ca03a] font-semibold">2026.10-prod</span>
+              Versão:{' '}
+              <span className={`font-semibold ${isLight ? 'text-[#16a34a]' : 'text-[#2ca03a]'}`}>
+                2026.10-prod
+              </span>
             </div>
           </div>
         </section>
@@ -778,20 +1382,42 @@ export default function AdminParamsScreen({
 
       {/* ABA 4: Vínculo Placa x Categoria Veicular */}
       {activeTab === 'vehicles' && (
-        <section className="bg-[#14171c] rounded-xl p-4 sm:p-5 border border-[#262b35] shadow-sm flex flex-col gap-4 animate-fade-in">
+        <section
+          className={`rounded-xl p-4 sm:p-5 border shadow-sm flex flex-col gap-4 animate-fade-in ${
+            isLight ? 'bg-white border-[#e2e8f0]' : 'bg-[#14171c] border-[#262b35]'
+          }`}
+        >
           {/* Cabeçalho da Aba */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#262b35]">
+          <div
+            className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b ${
+              isLight ? 'border-[#e2e8f0]' : 'border-[#262b35]'
+            }`}
+          >
             <div>
               <div className="flex items-center gap-2">
                 <div className="w-2.5 h-2.5 rounded-full bg-[#34b344]" />
-                <h2 className="font-headline-md text-sm sm:text-base font-bold text-[#dde3ed]">
+                <h2
+                  className={`font-headline-md text-sm sm:text-base font-bold ${
+                    isLight ? 'text-[#0f172a]' : 'text-[#dde3ed]'
+                  }`}
+                >
                   Vínculo de Placas à Categoria Veicular
                 </h2>
-                <span className="font-tabular-data text-[11px] px-2 py-0.5 rounded-full bg-[#2ca03a]/20 text-[#2ca03a] font-bold border border-[#2ca03a]/40">
+                <span
+                  className={`font-tabular-data text-[11px] px-2 py-0.5 rounded-full font-bold border ${
+                    isLight
+                      ? 'bg-[#dcfce7] text-[#15803d] border-[#86efac]'
+                      : 'bg-[#2ca03a]/20 text-[#2ca03a] border-[#2ca03a]/40'
+                  }`}
+                >
                   {vehicles.length} Veículos Cadastrados
                 </span>
               </div>
-              <p className="font-body-sm text-xs text-[#94a3b8] mt-1">
+              <p
+                className={`font-body-sm text-xs mt-1 ${
+                  isLight ? 'text-[#475569]' : 'text-[#94a3b8]'
+                }`}
+              >
                 Relacione cada placa à sua categoria e prefixo oficial. Os lançamentos telemétricos importados sem categoria ou com &quot;-&quot; herdarão automaticamente estas definições.
               </p>
             </div>
@@ -800,11 +1426,19 @@ export default function AdminParamsScreen({
               <button
                 onClick={loadVehicles}
                 disabled={isLoadingVehicles}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded bg-[#181c22] hover:bg-[#1c2026] text-[#dde3ed] hover:text-white transition-all text-xs border border-[#262b35] font-semibold cursor-pointer shadow-sm"
+                className={`inline-flex items-center gap-1.5 px-3 py-2 rounded transition-all text-xs border font-semibold cursor-pointer shadow-sm ${
+                  isLight
+                    ? 'bg-[#f8fafc] hover:bg-[#f1f5f9] text-[#0f172a] border-[#cbd5e1]'
+                    : 'bg-[#181c22] hover:bg-[#1c2026] text-[#dde3ed] hover:text-white border-[#262b35]'
+                }`}
                 type="button"
                 title="Recarregar veículos do banco de dados"
               >
-                <span className={`material-symbols-outlined text-[#2ca03a] text-[17px] ${isLoadingVehicles ? 'animate-spin' : ''}`}>
+                <span
+                  className={`material-symbols-outlined text-[17px] ${
+                    isLight ? 'text-[#16a34a]' : 'text-[#2ca03a]'
+                  } ${isLoadingVehicles ? 'animate-spin' : ''}`}
+                >
                   sync
                 </span>
                 <span>Sincronizar</span>
@@ -832,7 +1466,11 @@ export default function AdminParamsScreen({
             <div
               className={`p-3 rounded-lg text-xs font-semibold flex items-center justify-between border ${
                 vehicleNotification.isError
-                  ? 'bg-[#ef4444]/10 border-[#ef4444]/40 text-[#ef4444]'
+                  ? isLight
+                    ? 'bg-[#fee2e2] border-[#fca5a5] text-[#dc2626]'
+                    : 'bg-[#ef4444]/10 border-[#ef4444]/40 text-[#ef4444]'
+                  : isLight
+                  ? 'bg-[#dcfce7] border-[#86efac] text-[#15803d]'
                   : 'bg-[#2ca03a]/10 border-[#2ca03a]/40 text-[#34b344]'
               }`}
             >
@@ -844,7 +1482,7 @@ export default function AdminParamsScreen({
               </div>
               <button
                 onClick={() => setVehicleNotification(null)}
-                className="text-[#94a3b8] hover:text-white"
+                className={isLight ? 'text-[#475569] hover:text-[#0f172a]' : 'text-[#94a3b8] hover:text-white'}
                 type="button"
               >
                 <span className="material-symbols-outlined text-[16px]">close</span>
@@ -864,14 +1502,38 @@ export default function AdminParamsScreen({
                   onClick={() => setVehicleCategoryFilter(isSelected ? 'TODAS' : cat)}
                   className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
                     isSelected
-                      ? 'bg-[#1e2735] border-[#34b344] shadow-[0_0_10px_rgba(52,179,68,0.2)]'
+                      ? isLight
+                        ? 'bg-[#ecfdf5] border-[#16a34a] shadow-[0_0_10px_rgba(22,163,74,0.15)]'
+                        : 'bg-[#1e2735] border-[#34b344] shadow-[0_0_10px_rgba(52,179,68,0.2)]'
+                      : isLight
+                      ? 'bg-white border-[#e2e8f0] hover:border-[#16a34a]/50 hover:bg-[#f8fafc]'
                       : 'bg-[#181c22] border-[#262b35] hover:border-[#2ca03a]/40'
                   }`}
                 >
-                  <div className="text-[10px] uppercase font-bold text-[#94a3b8] truncate">
+                  <div
+                    className={`text-[10px] uppercase font-bold truncate ${
+                      isSelected
+                        ? isLight
+                          ? 'text-[#15803d]'
+                          : 'text-[#34b344]'
+                        : isLight
+                        ? 'text-[#475569]'
+                        : 'text-[#94a3b8]'
+                    }`}
+                  >
                     {cat}
                   </div>
-                  <div className="font-tabular-data text-lg font-bold text-white mt-0.5">
+                  <div
+                    className={`font-tabular-data text-lg font-bold mt-0.5 ${
+                      isSelected
+                        ? isLight
+                          ? 'text-[#14532d]'
+                          : 'text-white'
+                        : isLight
+                        ? 'text-[#0f172a]'
+                        : 'text-white'
+                    }`}
+                  >
                     {count}
                   </div>
                 </button>
@@ -880,9 +1542,17 @@ export default function AdminParamsScreen({
           </div>
 
           {/* Barra de Filtros e Busca */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-[#101317] p-2.5 rounded-lg border border-[#262b35]">
+          <div
+            className={`flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-2.5 rounded-lg border ${
+              isLight ? 'bg-[#f8fafc] border-[#e2e8f0]' : 'bg-[#101317] border-[#262b35]'
+            }`}
+          >
             <div className="relative flex-1">
-              <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-[#94a3b8] text-[18px]">
+              <span
+                className={`material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-[18px] ${
+                  isLight ? 'text-[#64748b]' : 'text-[#94a3b8]'
+                }`}
+              >
                 search
               </span>
               <input
@@ -890,12 +1560,18 @@ export default function AdminParamsScreen({
                 placeholder="Filtrar por placa ou prefixo..."
                 value={vehicleSearch}
                 onChange={(e) => setVehicleSearch(e.target.value)}
-                className="w-full bg-[#181c22] text-[#dde3ed] text-xs pl-8 pr-3 py-1.5 rounded border border-[#262b35] focus:outline-none focus:border-[#2ca03a] placeholder:text-[#64748b]"
+                className={`w-full text-xs pl-8 pr-3 py-1.5 rounded border focus:outline-none placeholder:text-[#64748b] ${
+                  isLight
+                    ? 'bg-white text-[#0f172a] border-[#cbd5e1] focus:border-[#16a34a]'
+                    : 'bg-[#181c22] text-[#dde3ed] border-[#262b35] focus:border-[#2ca03a]'
+                }`}
               />
               {vehicleSearch && (
                 <button
                   onClick={() => setVehicleSearch('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#94a3b8] hover:text-white"
+                  className={`absolute right-2.5 top-1/2 -translate-y-1/2 ${
+                    isLight ? 'text-[#64748b] hover:text-[#0f172a]' : 'text-[#94a3b8] hover:text-white'
+                  }`}
                   type="button"
                 >
                   <span className="material-symbols-outlined text-[16px]">close</span>
@@ -910,6 +1586,8 @@ export default function AdminParamsScreen({
                 className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-colors cursor-pointer shrink-0 ${
                   vehicleCategoryFilter === 'TODAS'
                     ? 'bg-[#2ca03a] text-white'
+                    : isLight
+                    ? 'bg-white text-[#475569] hover:text-[#0f172a] hover:bg-[#f1f5f9] border border-[#cbd5e1]'
                     : 'bg-[#181c22] text-[#94a3b8] hover:text-white border border-[#262b35]'
                 }`}
               >
@@ -923,6 +1601,8 @@ export default function AdminParamsScreen({
                   className={`px-2 py-1 rounded text-[11px] font-semibold transition-colors cursor-pointer shrink-0 ${
                     vehicleCategoryFilter === cat
                       ? 'bg-[#2ca03a] text-white'
+                      : isLight
+                      ? 'bg-white text-[#475569] hover:text-[#0f172a] hover:bg-[#f1f5f9] border border-[#cbd5e1]'
                       : 'bg-[#181c22] text-[#94a3b8] hover:text-white border border-[#262b35]'
                   }`}
                 >
@@ -933,10 +1613,20 @@ export default function AdminParamsScreen({
           </div>
 
           {/* Tabela de Veículos e Vínculo */}
-          <div className="overflow-x-auto rounded-lg bg-[#101317] border border-[#262b35] scrollbar-visible touch-scroll-x">
+          <div
+            className={`overflow-x-auto rounded-lg border scrollbar-visible touch-scroll-x ${
+              isLight ? 'bg-white border-[#e2e8f0]' : 'bg-[#101317] border-[#262b35]'
+            }`}
+          >
             <table className="w-full min-w-[700px] text-left font-tabular-data text-xs border-collapse whitespace-nowrap">
               <thead>
-                <tr className="bg-[#181c22] text-[#94a3b8] text-[10px] uppercase border-b border-[#262b35]">
+                <tr
+                  className={`text-[10px] uppercase border-b ${
+                    isLight
+                      ? 'bg-[#f8fafc] text-[#475569] border-[#e2e8f0]'
+                      : 'bg-[#181c22] text-[#94a3b8] border-[#262b35]'
+                  }`}
+                >
                   <th className="py-3 px-3.5">Placa</th>
                   <th className="py-3 px-3.5">Prefixo</th>
                   <th className="py-3 px-3.5">Categoria Respectiva (Vínculo)</th>
@@ -945,10 +1635,15 @@ export default function AdminParamsScreen({
                   <th className="py-3 px-3.5 text-right">Ações</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#262b35]">
+              <tbody className={`divide-y ${isLight ? 'divide-[#e2e8f0]' : 'divide-[#262b35]'}`}>
                 {filteredVehicles.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="py-8 text-center text-[#94a3b8] italic">
+                    <td
+                      colSpan={6}
+                      className={`py-8 text-center italic ${
+                        isLight ? 'text-[#475569]' : 'text-[#94a3b8]'
+                      }`}
+                    >
                       Nenhum veículo encontrado com os filtros atuais.
                     </td>
                   </tr>
@@ -956,16 +1651,31 @@ export default function AdminParamsScreen({
                   filteredVehicles.map((v) => {
                     const isLeve = v.categoria.toUpperCase() === 'LEVE';
                     return (
-                      <tr key={v.placa} className="hover:bg-[#181c22] transition-colors">
+                      <tr
+                        key={v.placa}
+                        className={`transition-colors ${
+                          isLight ? 'bg-white hover:bg-[#f8fafc]' : 'hover:bg-[#181c22]'
+                        }`}
+                      >
                         <td className="py-3 px-3.5">
                           <div className="flex items-center gap-2">
                             <span className="w-2 h-2 rounded-full bg-[#34b344]" />
-                            <span className="font-mono font-bold text-sm text-[#f1f5f9] tracking-wider bg-[#181c22] border border-[#283548] px-2 py-0.5 rounded">
+                            <span
+                              className={`font-mono font-bold text-sm tracking-wider border px-2 py-0.5 rounded ${
+                                isLight
+                                  ? 'bg-[#f8fafc] border-[#cbd5e1] text-[#0f172a]'
+                                  : 'bg-[#181c22] border-[#283548] text-[#f1f5f9]'
+                              }`}
+                            >
                               {v.placa}
                             </span>
                           </div>
                         </td>
-                        <td className="py-3 px-3.5 text-[#94a3b8] font-mono">
+                        <td
+                          className={`py-3 px-3.5 font-mono ${
+                            isLight ? 'text-[#475569]' : 'text-[#94a3b8]'
+                          }`}
+                        >
                           {v.prefixo || <span className="text-[#64748b] italic">Não informado</span>}
                         </td>
                         <td className="py-3 px-3.5">
@@ -974,7 +1684,11 @@ export default function AdminParamsScreen({
                             <select
                               value={v.categoria}
                               onChange={(e) => handleQuickCategoryChange(v.placa, e.target.value)}
-                              className="bg-[#1c2432] text-white border border-[#283548] hover:border-[#34b344] focus:border-[#34b344] rounded px-2.5 py-1 text-xs font-semibold focus:outline-none transition-colors cursor-pointer"
+                              className={`border rounded px-2.5 py-1 text-xs font-semibold focus:outline-none transition-colors cursor-pointer ${
+                                isLight
+                                  ? 'bg-white text-[#0f172a] border-[#cbd5e1] hover:border-[#16a34a] focus:border-[#16a34a]'
+                                  : 'bg-[#1c2432] text-white border-[#283548] hover:border-[#34b344] focus:border-[#34b344]'
+                              }`}
                             >
                               {ALL_CATEGORIES.map((cat) => (
                                 <option key={cat} value={cat}>
@@ -982,21 +1696,31 @@ export default function AdminParamsScreen({
                                 </option>
                               ))}
                             </select>
-                            <span className="text-[10px] text-[#2ca03a] font-bold">VINCULADO</span>
+                            <span
+                              className={`text-[10px] font-bold ${
+                                isLight ? 'text-[#16a34a]' : 'text-[#2ca03a]'
+                              }`}
+                            >
+                              VINCULADO
+                            </span>
                           </div>
                         </td>
                         <td className="py-3 px-3.5">
                           <span
                             className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${
                               isLeve
-                                ? 'bg-[#3b82f6]/10 text-[#60a5fa] border-[#3b82f6]/30'
+                                ? isLight
+                                  ? 'bg-[#dbeafe] text-[#1d4ed8] border-[#93c5fd]'
+                                  : 'bg-[#3b82f6]/10 text-[#60a5fa] border-[#3b82f6]/30'
+                                : isLight
+                                ? 'bg-[#fef3c7] text-[#b45309] border-[#fcd34d]'
                                 : 'bg-[#eab308]/10 text-[#facc15] border-[#eab308]/30'
                             }`}
                           >
                             {isLeve ? 'Veículo Leve' : 'Composição Pesada'}
                           </span>
                         </td>
-                        <td className="py-3 px-3.5 text-[#94a3b8]">
+                        <td className={`py-3 px-3.5 ${isLight ? 'text-[#475569]' : 'text-[#94a3b8]'}`}>
                           {v.uo || 'CASAGRANDE'}
                         </td>
                         <td className="py-3 px-3.5 text-right">
@@ -1004,7 +1728,11 @@ export default function AdminParamsScreen({
                             type="button"
                             onClick={() => handleDeleteVehicle(v.placa)}
                             title="Remover veículo"
-                            className="p-1 rounded text-[#94a3b8] hover:text-[#ef4444] hover:bg-[#ef4444]/10 transition-colors cursor-pointer"
+                            className={`p-1 rounded transition-colors cursor-pointer ${
+                              isLight
+                                ? 'text-[#64748b] hover:text-[#dc2626] hover:bg-[#fee2e2]'
+                                : 'text-[#94a3b8] hover:text-[#ef4444] hover:bg-[#ef4444]/10'
+                            }`}
                           >
                             <span className="material-symbols-outlined text-[18px]">delete</span>
                           </button>
@@ -1018,15 +1746,28 @@ export default function AdminParamsScreen({
           </div>
 
           {/* Rodapé Informativo */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 text-[#94a3b8] text-[11px] border-t border-[#262b35]/40">
+          <div
+            className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 text-[11px] border-t ${
+              isLight
+                ? 'text-[#475569] border-[#e2e8f0]'
+                : 'text-[#94a3b8] border-[#262b35]/40'
+            }`}
+          >
             <div className="flex items-center gap-1.5">
-              <span className="material-symbols-outlined text-[#2ca03a] text-[15px]">verified</span>
+              <span
+                className={`material-symbols-outlined text-[15px] ${
+                  isLight ? 'text-[#16a34a]' : 'text-[#2ca03a]'
+                }`}
+              >
+                verified
+              </span>
               <span>
                 Todas as placas listadas são vinculadas em tempo real durante a ingestão e importação de planilhas.
               </span>
             </div>
             <div className="font-tabular-data text-[10px]">
-              Total no Cadastro: <strong className="text-white">{vehicles.length}</strong>
+              Total no Cadastro:{' '}
+              <strong className={isLight ? 'text-[#0f172a]' : 'text-white'}>{vehicles.length}</strong>
             </div>
           </div>
         </section>
@@ -1035,20 +1776,38 @@ export default function AdminParamsScreen({
       {/* Modal de Cadastro de Nova Placa */}
       {isAddVehicleModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
-          <div className="bg-[#14171c] border border-[#283548] rounded-xl max-w-md w-full p-5 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-[#262b35]">
+          <div
+            className={`border rounded-xl max-w-md w-full p-5 shadow-2xl space-y-4 ${
+              isLight ? 'bg-white border-[#e2e8f0]' : 'bg-[#14171c] border-[#283548]'
+            }`}
+          >
+            <div
+              className={`flex items-center justify-between pb-3 border-b ${
+                isLight ? 'border-[#e2e8f0]' : 'border-[#262b35]'
+              }`}
+            >
               <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-[#34b344] text-[22px]">
+                <span
+                  className={`material-symbols-outlined text-[22px] ${
+                    isLight ? 'text-[#16a34a]' : 'text-[#34b344]'
+                  }`}
+                >
                   directions_car
                 </span>
-                <h3 className="font-headline-md text-base font-bold text-white">
+                <h3
+                  className={`font-headline-md text-base font-bold ${
+                    isLight ? 'text-[#0f172a]' : 'text-white'
+                  }`}
+                >
                   Cadastrar Vínculo de Placa
                 </h3>
               </div>
               <button
                 type="button"
                 onClick={() => setIsAddVehicleModalOpen(false)}
-                className="text-[#94a3b8] hover:text-white cursor-pointer"
+                className={`cursor-pointer ${
+                  isLight ? 'text-[#64748b] hover:text-[#0f172a]' : 'text-[#94a3b8] hover:text-white'
+                }`}
               >
                 <span className="material-symbols-outlined text-[20px]">close</span>
               </button>
@@ -1056,7 +1815,7 @@ export default function AdminParamsScreen({
 
             <form onSubmit={handleSaveNewVehicle} className="space-y-4 text-xs">
               <div className="space-y-1">
-                <label className="text-[#94a3b8] font-semibold block">
+                <label className={`font-semibold block ${isLight ? 'text-[#475569]' : 'text-[#94a3b8]'}`}>
                   Placa do Veículo <span className="text-[#ef4444]">*</span>
                 </label>
                 <input
@@ -1065,7 +1824,11 @@ export default function AdminParamsScreen({
                   placeholder="Ex: SLW4D68"
                   value={newVehiclePlate}
                   onChange={(e) => setNewVehiclePlate(e.target.value.toUpperCase())}
-                  className="w-full bg-[#181c22] border border-[#283548] focus:border-[#34b344] rounded px-3 py-2 text-white font-mono uppercase text-sm tracking-wider focus:outline-none"
+                  className={`w-full border rounded px-3 py-2 font-mono uppercase text-sm tracking-wider focus:outline-none ${
+                    isLight
+                      ? 'bg-[#f8fafc] border-[#cbd5e1] text-[#0f172a] focus:bg-white focus:border-[#16a34a]'
+                      : 'bg-[#181c22] border-[#283548] text-white focus:border-[#34b344]'
+                  }`}
                 />
                 <span className="text-[10px] text-[#64748b]">
                   Padrão Mercosul (ex: ABC1D23) ou convencional (ex: ABC1234).
@@ -1073,13 +1836,17 @@ export default function AdminParamsScreen({
               </div>
 
               <div className="space-y-1">
-                <label className="text-[#94a3b8] font-semibold block">
+                <label className={`font-semibold block ${isLight ? 'text-[#475569]' : 'text-[#94a3b8]'}`}>
                   Categoria Respectiva <span className="text-[#ef4444]">*</span>
                 </label>
                 <select
                   value={newVehicleCategory}
                   onChange={(e) => setNewVehicleCategory(e.target.value)}
-                  className="w-full bg-[#181c22] border border-[#283548] focus:border-[#34b344] rounded px-3 py-2 text-white font-semibold text-xs focus:outline-none cursor-pointer"
+                  className={`w-full border rounded px-3 py-2 font-semibold text-xs focus:outline-none cursor-pointer ${
+                    isLight
+                      ? 'bg-[#f8fafc] border-[#cbd5e1] text-[#0f172a] focus:bg-white focus:border-[#16a34a]'
+                      : 'bg-[#181c22] border-[#283548] text-white focus:border-[#34b344]'
+                  }`}
                 >
                   {ALL_CATEGORIES.map((cat) => (
                     <option key={cat} value={cat}>
@@ -1090,7 +1857,7 @@ export default function AdminParamsScreen({
               </div>
 
               <div className="space-y-1">
-                <label className="text-[#94a3b8] font-semibold block">
+                <label className={`font-semibold block ${isLight ? 'text-[#475569]' : 'text-[#94a3b8]'}`}>
                   Prefixo Operacional (Opcional)
                 </label>
                 <input
@@ -1098,12 +1865,16 @@ export default function AdminParamsScreen({
                   placeholder="Ex: Z4A4B5A71"
                   value={newVehiclePrefix}
                   onChange={(e) => setNewVehiclePrefix(e.target.value)}
-                  className="w-full bg-[#181c22] border border-[#283548] focus:border-[#34b344] rounded px-3 py-2 text-white font-mono text-xs focus:outline-none"
+                  className={`w-full border rounded px-3 py-2 font-mono text-xs focus:outline-none ${
+                    isLight
+                      ? 'bg-[#f8fafc] border-[#cbd5e1] text-[#0f172a] focus:bg-white focus:border-[#16a34a]'
+                      : 'bg-[#181c22] border-[#283548] text-white focus:border-[#34b344]'
+                  }`}
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-[#94a3b8] font-semibold block">
+                <label className={`font-semibold block ${isLight ? 'text-[#475569]' : 'text-[#94a3b8]'}`}>
                   Unidade Operacional (UO)
                 </label>
                 <input
@@ -1111,15 +1882,27 @@ export default function AdminParamsScreen({
                   placeholder="Ex: CASAGRANDE"
                   value={newVehicleUo}
                   onChange={(e) => setNewVehicleUo(e.target.value)}
-                  className="w-full bg-[#181c22] border border-[#283548] focus:border-[#34b344] rounded px-3 py-2 text-white text-xs focus:outline-none"
+                  className={`w-full border rounded px-3 py-2 text-xs focus:outline-none ${
+                    isLight
+                      ? 'bg-[#f8fafc] border-[#cbd5e1] text-[#0f172a] focus:bg-white focus:border-[#16a34a]'
+                      : 'bg-[#181c22] border-[#283548] text-white focus:border-[#34b344]'
+                  }`}
                 />
               </div>
 
-              <div className="pt-2 flex items-center justify-end gap-2 border-t border-[#262b35]">
+              <div
+                className={`pt-2 flex items-center justify-end gap-2 border-t ${
+                  isLight ? 'border-[#e2e8f0]' : 'border-[#262b35]'
+                }`}
+              >
                 <button
                   type="button"
                   onClick={() => setIsAddVehicleModalOpen(false)}
-                  className="px-3.5 py-2 rounded bg-[#181c22] hover:bg-[#1c2026] text-[#94a3b8] hover:text-white border border-[#283548] transition-colors cursor-pointer"
+                  className={`px-3.5 py-2 rounded border transition-colors cursor-pointer ${
+                    isLight
+                      ? 'bg-[#f1f5f9] hover:bg-[#e2e8f0] text-[#475569] hover:text-[#0f172a] border-[#cbd5e1]'
+                      : 'bg-[#181c22] hover:bg-[#1c2026] text-[#94a3b8] hover:text-white border-[#283548]'
+                  }`}
                 >
                   Cancelar
                 </button>
