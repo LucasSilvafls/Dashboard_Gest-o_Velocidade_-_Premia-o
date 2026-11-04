@@ -61,40 +61,40 @@ const NAV_ITEMS: {
 }[] = [
   {
     id: 'resumo-geral-e-horarios',
-    label: '1. Resumo Geral & Horários',
+    label: '1. Resumo Geral',
     icon: <BarChart3 className="size-[18px]" strokeWidth={1.8} />,
     badge: '9.051',
   },
   {
     id: 'rankings-frota-e-motoristas',
-    label: '2. Rankings (Frota & Motoristas)',
+    label: '2. Rankings',
     icon: <Trophy className="size-[18px]" strokeWidth={1.8} />,
     badge: '12',
   },
   {
     id: 'central-de-ocorrencias-e-rodovias',
-    label: '3. Central de Ocorrências & Rodovias',
+    label: '3. Ocorrências',
     icon: <AlertTriangle className="size-[18px]" strokeWidth={1.8} />,
     badge: 'MS-112',
     badgeColor: '#ef4444',
   },
   {
     id: 'premiacao-e-compliance',
-    label: '4. Premiação & Compliance',
+    label: '4. Premiação',
     icon: <Award className="size-[18px]" strokeWidth={1.8} />,
     badge: '80 km/h',
     badgeColor: '#34b344',
   },
   {
     id: 'auditoria-sem-identificacao',
-    label: '5. Auditoria sem Identificação',
+    label: '5. Sem Identificação',
     icon: <FileSearch className="size-[18px]" strokeWidth={1.8} />,
     badge: '3.797',
     badgeColor: '#f59e0b',
   },
   {
     id: 'painel-admin-e-parametrizacoes',
-    label: '6. Painel Admin & Parametrizações',
+    label: '6. Painel admin',
     icon: <SlidersHorizontal className="size-[18px]" strokeWidth={1.8} />,
   },
 ];
