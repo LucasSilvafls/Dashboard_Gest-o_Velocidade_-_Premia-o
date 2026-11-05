@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
   // Revalida o token contra o hash de senha ativo no Supabase (invalida sessões antigas após troca de senha)
   const verifiedPayload = verifySignedSessionToken(
     token,
-    authState.customPasswordHash || DEFAULT_CORPORATE_HASH
+    authState.customPasswordHash || undefined
   );
   if (!verifiedPayload) {
     return NextResponse.json(

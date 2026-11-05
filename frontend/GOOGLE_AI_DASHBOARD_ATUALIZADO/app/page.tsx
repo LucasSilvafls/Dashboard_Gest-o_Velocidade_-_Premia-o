@@ -212,32 +212,41 @@ export default function Home() {
                 } catch {}
 
                 // Revalidação assíncrona contra o estado autoritativo no Supabase
-                void fetchCorporateAuthStateFromSupabase(verifiedPayload.sub).then((remote) => {
-                  if (!remote || isCancelled) return;
-                  const remoteTokenCheck = verifySignedSessionToken(
-                    backendToken,
-                    remote.customPasswordHash || DEFAULT_CORPORATE_HASH
-                  );
-                  if (!remoteTokenCheck) {
-                    localStorage.removeItem('csg_session_user_v1');
-                    localStorage.removeItem('csg_backend_token');
-                    setCurrentUser(null);
-                    setIsAuthenticated(false);
-                    return;
-                  }
-                  const syncedUser: AuthenticatedUser = {
-                    id: remote.profileId || userObj.id,
-                    name: remote.name || userObj.name,
-                    username: remote.username,
-                    email: remote.email || userObj.email,
-                    role: remote.roleLabel,
-                    primeiroAcesso: remote.primeiroAcesso,
-                  };
-                  setCurrentUser(syncedUser);
+                void (async () => {
                   try {
-                    localStorage.setItem('csg_session_user_v1', JSON.stringify(syncedUser));
+                    await syncLocalPasswordHashesToSupabase();
+                    const remote = await fetchCorporateAuthStateFromSupabase(verifiedPayload.sub);
+                    if (!remote || isCancelled) return;
+
+                    // Se houver senha personalizada ativa no Supabase, exige que o token corresponda a ela
+                    if (remote.customPasswordHash) {
+                      const remoteTokenCheck = verifySignedSessionToken(
+                        backendToken,
+                        remote.customPasswordHash
+                      );
+                      if (!remoteTokenCheck) {
+                        localStorage.removeItem('csg_session_user_v1');
+                        localStorage.removeItem('csg_backend_token');
+                        setCurrentUser(null);
+                        setIsAuthenticated(false);
+                        return;
+                      }
+                    }
+
+                    const syncedUser: AuthenticatedUser = {
+                      id: remote.profileId || userObj.id,
+                      name: remote.name || userObj.name,
+                      username: remote.username,
+                      email: remote.email || userObj.email,
+                      role: remote.roleLabel,
+                      primeiroAcesso: remote.primeiroAcesso,
+                    };
+                    setCurrentUser(syncedUser);
+                    try {
+                      localStorage.setItem('csg_session_user_v1', JSON.stringify(syncedUser));
+                    } catch {}
                   } catch {}
-                });
+                })();
                 return;
               } else {
                 localStorage.removeItem('csg_backend_token');
@@ -533,12 +542,18 @@ export default function Home() {
     const handleHash = () => {
       const hash = window.location.hash.replace('#', '');
       if (hash === 'login') {
-        handleLogout();
+        // Limpa a âncora #login da URL para nunca bloquear ou deslogar um novo login/F5
+        if (typeof window !== 'undefined') {
+          const cleanTarget = isAuthenticated
+            ? `#${currentScreen || 'resumo-geral-e-horarios'}`
+            : window.location.pathname + window.location.search;
+          window.history.replaceState(null, '', cleanTarget);
+        }
         return;
       }
       if (hash === 'painel-admin-e-parametrizacoes' && currentUser && !isAdminRole(currentUser.role)) {
         setCurrentScreen('resumo-geral-e-horarios');
-        window.location.hash = 'resumo-geral-e-horarios';
+        window.history.replaceState(null, '', '#resumo-geral-e-horarios');
         showToast('Acesso restrito: o Painel Admin é exclusivo para Administradores CCO.');
         return;
       }
@@ -560,7 +575,7 @@ export default function Home() {
     handleHash();
     window.addEventListener('hashchange', handleHash);
     return () => window.removeEventListener('hashchange', handleHash);
-  }, [currentUser, showToast]);
+  }, [currentUser, isAuthenticated, currentScreen, showToast]);
 
   const handleSelectScreen = (screen: ScreenId) => {
     if (screen === 'painel-admin-e-parametrizacoes' && !isAdmin) {
@@ -578,17 +593,22 @@ export default function Home() {
       ...user,
       role: normalizeRoleLabel(user.role),
     };
+    const nextScreen: ScreenId =
+      !isAdminRole(normalizedUser.role) && currentScreen === 'painel-admin-e-parametrizacoes'
+        ? 'resumo-geral-e-horarios'
+        : currentScreen || 'resumo-geral-e-horarios';
+
     setCurrentUser(normalizedUser);
+    setCurrentScreen(nextScreen);
     setIsAuthenticated(true);
-    if (!isAdminRole(normalizedUser.role) && currentScreen === 'painel-admin-e-parametrizacoes') {
-      setCurrentScreen('resumo-geral-e-horarios');
-      if (typeof window !== 'undefined') {
-        window.location.hash = 'resumo-geral-e-horarios';
-      }
+
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('csg_session_user_v1', JSON.stringify(normalizedUser));
+      } catch {}
+      window.history.replaceState(null, '', `#${nextScreen}`);
     }
-    try {
-      localStorage.setItem('csg_session_user_v1', JSON.stringify(normalizedUser));
-    } catch {}
+
     if (normalizedUser.primeiroAcesso) {
       setIsFirstAccessModalOpen(true);
     }
@@ -603,9 +623,15 @@ export default function Home() {
       localStorage.removeItem('csg_session_user_v1');
       localStorage.removeItem('csg_backend_token');
     } catch {}
+    setIsProfileOpen(false);
+    setIsNotificationsOpen(false);
+    setIsFirstAccessModalOpen(false);
     setCurrentUser(null);
     setIsAuthenticated(false);
-    window.location.hash = 'login';
+    setCurrentScreen('resumo-geral-e-horarios');
+    if (typeof window !== 'undefined') {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
     showToast('Sessão encerrada com sucesso no CCO.');
   };
 
