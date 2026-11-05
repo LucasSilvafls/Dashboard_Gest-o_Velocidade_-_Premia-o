@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import { verifySignedSessionToken, isAdminRole } from './auth-crypto';
 import {
   Incident,
   DriverScore,
@@ -603,6 +604,34 @@ export async function fetchFleetVehicles(): Promise<FleetVehicleRecord[]> {
   return Array.from(fleetRegistryMap.values()).sort((a, b) => a.placa.localeCompare(b.placa));
 }
 
+function checkBrowserAdminPermission(): { allowed: boolean; error?: string } {
+  if (typeof window === 'undefined') {
+    return { allowed: true };
+  }
+  try {
+    const token = localStorage.getItem('csg_backend_token');
+    const payload = verifySignedSessionToken(token);
+    if (!payload) {
+      return {
+        allowed: false,
+        error: 'Sessão não autenticada ou expirada. Faça login novamente no CCO.',
+      };
+    }
+    if (!isAdminRole(payload.role)) {
+      return {
+        allowed: false,
+        error: 'Acesso negado: esta operação exige privilégios de Administrador CCO.',
+      };
+    }
+    return { allowed: true };
+  } catch {
+    return {
+      allowed: false,
+      error: 'Erro ao validar permissões da sessão atual.',
+    };
+  }
+}
+
 /**
  * Salva ou atualiza o vínculo de uma placa com sua categoria no sistema
  */
@@ -612,6 +641,10 @@ export async function saveFleetVehicle(vehicle: {
   prefixo?: string | null;
   uo?: string | null;
 }): Promise<{ success: boolean; error?: string }> {
+  const perm = checkBrowserAdminPermission();
+  if (!perm.allowed) {
+    return { success: false, error: perm.error };
+  }
   const cp = cleanPlate(vehicle.placa);
   if (!cp || cp.length < 7 || cp.length > 8) {
     return { success: false, error: 'Placa inválida: deve conter 7 ou 8 caracteres alfanuméricos.' };
@@ -648,6 +681,10 @@ export async function saveFleetVehicle(vehicle: {
  * Remove um veículo do cadastro da frota
  */
 export async function deleteFleetVehicle(placa: string): Promise<{ success: boolean; error?: string }> {
+  const perm = checkBrowserAdminPermission();
+  if (!perm.allowed) {
+    return { success: false, error: perm.error };
+  }
   const cp = cleanPlate(placa);
   if (!cp || cp.length < 7 || cp.length > 8) {
     return { success: false, error: 'Placa inválida para exclusão.' };
@@ -1059,6 +1096,10 @@ export async function uploadSpreadsheetEvents(
   userEmail = 'admin.cco@casagrandetransportes.com.br'
 ): Promise<{ success: boolean; inserted: number; duplicates: number; error?: string }> {
   try {
+    const perm = checkBrowserAdminPermission();
+    if (!perm.allowed) {
+      return { success: false, inserted: 0, duplicates: 0, error: perm.error };
+    }
     if (!Array.isArray(events) || events.length === 0) {
       return { success: false, inserted: 0, duplicates: 0, error: 'Lista de eventos vazia ou inválida.' };
     }

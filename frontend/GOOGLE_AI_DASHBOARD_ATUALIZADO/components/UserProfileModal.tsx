@@ -1,7 +1,8 @@
 'use client';
 
 import React from 'react';
-import { KeyRound, Shield, LogOut, CheckCircle } from 'lucide-react';
+import { KeyRound, LogOut } from 'lucide-react';
+import { isAdminRole, normalizeRoleLabel } from '@/lib/auth-crypto';
 
 export interface UserProfileData {
   id?: string;
@@ -28,12 +29,11 @@ export default function UserProfileModal({
 }: UserProfileModalProps) {
   if (!isOpen) return null;
 
-  const displayName = user?.name || 'Administrador CCO';
-  const displayUsername = user?.username || 'admincasagrande';
+  const isAdmin = isAdminRole(user?.role);
+  const displayName = user?.name || (isAdmin ? 'Administrador CCO' : 'Operador CCO');
+  const displayUsername = user?.username || (isAdmin ? 'admincasagrande' : 'operadorcasagrande');
   const displayEmail = user?.email || `${displayUsername}@casagrandetransportes.com.br`;
-  const displayRole = user?.role === 'admin' || user?.role?.includes('Supervisor')
-    ? 'Supervisor de Telemetria & Operações'
-    : 'Visualizador CCO';
+  const displayRole = normalizeRoleLabel(user?.role);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
@@ -90,7 +90,9 @@ export default function UserProfileModal({
             </div>
             <div className="flex justify-between p-2.5 rounded-lg bg-[#0c1017] border border-[#283548]">
               <span className="text-[#94a3b8]">Nível de Acesso:</span>
-              <span className="text-[#34b344] font-bold">SUPERVISÃO TOTAL / SESMT</span>
+              <span className={`font-bold ${isAdmin ? 'text-[#34b344]' : 'text-[#38bdf8]'}`}>
+                {isAdmin ? 'SUPERVISÃO TOTAL / SESMT (ADMIN)' : 'CONSULTA E MONITORAMENTO (CCO)'}
+              </span>
             </div>
             <div className="flex justify-between p-2.5 rounded-lg bg-[#0c1017] border border-[#283548]">
               <span className="text-[#94a3b8]">Sessão CCO:</span>

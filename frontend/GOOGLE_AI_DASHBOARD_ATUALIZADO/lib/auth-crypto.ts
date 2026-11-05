@@ -1,5 +1,5 @@
 /**
- * Módulo Criptográfico de Autenticação e Sessão CCO (SHA-256 + HMAC-SHA256 JWT)
+ * Módulo Criptográfico de Autenticação, Persistência de Credenciais e RBAC CCO (SHA-256 + HMAC-SHA256 JWT)
  * Casagrande Locações e Transportes
  *
  * Implementação determinística e autossuficiente (compatível com Node.js, Edge,
@@ -21,8 +21,20 @@ export interface SessionTokenPayload {
   name: string;
   role: 'admin' | 'viewer';
   email: string;
+  pwdVer?: string;
   iat: number;
   exp: number;
+}
+
+export interface CorporateSupabaseAuthState {
+  username: string;
+  profileId?: string;
+  name: string;
+  email: string;
+  role: 'admin' | 'viewer';
+  roleLabel: 'Supervisor de Telemetria & Operações' | 'Visualizador CCO';
+  primeiroAcesso: boolean;
+  customPasswordHash: string | null;
 }
 
 const PASSWORD_SALT = 'csg_salt_2026';
@@ -30,18 +42,22 @@ const TOKEN_SIGNING_CONTEXT = 'csg_hmac_jwt_v2_casagrande_cco_2026';
 const TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 horas
 
 /**
- * Hashes SHA-256 salgados pré-computados (sha256("csg_salt_2026:" + senha))
- * - DEFAULT_CORPORATE_HASH corresponde à credencial padrão corporativa CCO
- * - SECONDARY_ADMIN_HASH corresponde à credencial alternativa de contingência
+ * Hash SHA-256 salgado pré-computado (sha256("csg_salt_2026:" + senha))
+ * DEFAULT_CORPORATE_HASH corresponde exclusivamente à senha inicial padrão ("Casagrande@2026"),
+ * que é automaticamente revogada assim que o usuário define uma senha personalizada.
  */
-const DEFAULT_CORPORATE_HASH =
+export const DEFAULT_CORPORATE_HASH =
   '4fa5a055ee5d3efbaf069c5c198eb9dffc094e9fde8111577cb0954b4d2b9486';
-const SECONDARY_ADMIN_HASH =
-  'bdb0ac5d5dec84beeac1ce94ecf86f5b11a3ca6a5c20c9d091ede27aafe27a4f';
+
+const CREDENTIAL_ROW_IDS: Record<string, string> = {
+  admincasagrande: 'c3dcfdda-0c83-426c-ac67-000000000001',
+  rafaelcasagrande: '52dac046-7bd8-4087-bbea-000000000002',
+  operadorcasagrande: '91b33755-0624-5a8b-b988-000000000003',
+};
 
 export const CORPORATE_USERS: Record<string, CorporateUserProfile> = {
   admincasagrande: {
-    id: 'cco-user-admincasagrande',
+    id: 'c3dcfdda-0c83-426c-ac67-f2f55b6689e6',
     username: 'admincasagrande',
     name: 'Administrador CCO',
     role: 'admin',
@@ -49,7 +65,7 @@ export const CORPORATE_USERS: Record<string, CorporateUserProfile> = {
     email: 'admincasagrande@casagrandetransportes.com.br',
   },
   rafaelcasagrande: {
-    id: 'cco-user-rafaelcasagrande',
+    id: '52dac046-7bd8-4087-bbea-3142f302ce1d',
     username: 'rafaelcasagrande',
     name: 'Rafael Casagrande',
     role: 'admin',
@@ -57,7 +73,7 @@ export const CORPORATE_USERS: Record<string, CorporateUserProfile> = {
     email: 'rafaelcasagrande@casagrandetransportes.com.br',
   },
   operadorcasagrande: {
-    id: 'cco-user-operadorcasagrande',
+    id: '91b33755-0624-5a8b-b988-9ab9aa7c85c4',
     username: 'operadorcasagrande',
     name: 'Operador CCO',
     role: 'viewer',
@@ -68,6 +84,7 @@ export const CORPORATE_USERS: Record<string, CorporateUserProfile> = {
 
 /**
  * Normaliza entradas de usuário ou e-mail para o identificador canônico corporativo.
+ * Aceita apenas apelidos corporativos explícitos, impedindo casamento permissivo por prefixo.
  */
 export function normalizeCorporateUsername(rawInput: string): string {
   const clean = (rawInput || '').trim().toLowerCase();
@@ -77,26 +94,64 @@ export function normalizeCorporateUsername(rawInput: string): string {
     localPart === 'admin' ||
     localPart === 'administrador' ||
     localPart === 'admincasagrande' ||
-    localPart === 'admin.cco' ||
-    localPart.startsWith('admin')
+    localPart === 'admin.cco'
   ) {
     return 'admincasagrande';
   }
 
-  if (localPart === 'rafael' || localPart === 'rafaelcasagrande' || localPart.startsWith('rafael')) {
+  if (
+    localPart === 'rafael' ||
+    localPart === 'rafaelcasagrande' ||
+    localPart === 'rafael.cco'
+  ) {
     return 'rafaelcasagrande';
   }
 
   if (
     localPart === 'operador' ||
     localPart === 'operadorcasagrande' ||
+    localPart === 'operador.cco' ||
     localPart === 'viewer' ||
-    localPart.startsWith('operador')
+    localPart === 'visualizador'
   ) {
     return 'operadorcasagrande';
   }
 
   return localPart;
+}
+
+/**
+ * Verifica se o perfil/role informado possui privilégios administrativos (Deny by Default).
+ */
+export function isAdminRole(role?: string | null): boolean {
+  if (!role || typeof role !== 'string') return false;
+  const normalized = role.trim().toLowerCase();
+  return (
+    normalized === 'admin' ||
+    normalized === 'supervisor de telemetria & operações' ||
+    normalized === 'supervisor de telemetria & operacoes'
+  );
+}
+
+export function normalizeRoleCode(role?: string | null): 'admin' | 'viewer' {
+  return isAdminRole(role) ? 'admin' : 'viewer';
+}
+
+export function normalizeRoleLabel(
+  role?: string | null
+): 'Supervisor de Telemetria & Operações' | 'Visualizador CCO' {
+  return isAdminRole(role) ? 'Supervisor de Telemetria & Operações' : 'Visualizador CCO';
+}
+
+export function isValidPasswordHash(hash: string | null | undefined): hash is string {
+  return typeof hash === 'string' && /^[0-9a-f]{64}$/i.test(hash.trim());
+}
+
+export function getPasswordVersionTag(activePasswordHash?: string | null): string {
+  const effectiveHash = isValidPasswordHash(activePasswordHash)
+    ? activePasswordHash.trim().toLowerCase()
+    : DEFAULT_CORPORATE_HASH;
+  return effectiveHash.slice(0, 12);
 }
 
 /**
@@ -247,7 +302,7 @@ function hmacSha256Hex(keyStr: string, message: string): string {
 /**
  * Comparação em tempo constante para evitar timing attacks.
  */
-function constantTimeEqual(a: string, b: string): boolean {
+export function constantTimeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
   let diff = 0;
   for (let i = 0; i < a.length; i++) {
@@ -265,6 +320,10 @@ export function hashCorporatePassword(password: string): string {
 
 /**
  * Valida credenciais corporativas por comparação criptográfica de hash SHA-256.
+ *
+ * REGRA CRÍTICA DE SEGURANÇA:
+ * Se `customPasswordHash` estiver presente (usuário já alterou sua senha),
+ * a senha padrão inicial (`Casagrande@2026`) é ESTRITAMENTE REJEITADA (sem fallback).
  */
 export function verifyCorporateCredentials(
   rawUsername: string,
@@ -279,20 +338,15 @@ export function verifyCorporateCredentials(
 
   const candidateHash = hashCorporatePassword(password);
 
-  // 1. Verifica hash de senha personalizada (se configurado pelo usuário)
-  if (
-    customPasswordHash &&
-    customPasswordHash.length === 64 &&
-    constantTimeEqual(candidateHash, customPasswordHash)
-  ) {
-    return profile;
+  // 1. Se o usuário possui hash de senha personalizada configurado, APENAS ele é aceito.
+  // A senha padrão inicial fica permanentemente desativada para a conta.
+  if (isValidPasswordHash(customPasswordHash)) {
+    const normalizedCustom = customPasswordHash.trim().toLowerCase();
+    return constantTimeEqual(candidateHash, normalizedCustom) ? profile : null;
   }
 
-  // 2. Verifica hash da senha corporativa oficial ("Casagrande@2026") ou contingência admin
-  if (
-    constantTimeEqual(candidateHash, DEFAULT_CORPORATE_HASH) ||
-    constantTimeEqual(candidateHash, SECONDARY_ADMIN_HASH)
-  ) {
+  // 2. Somente se o usuário nunca definiu senha personalizada, valida contra o hash padrão inicial.
+  if (constantTimeEqual(candidateHash, DEFAULT_CORPORATE_HASH)) {
     return profile;
   }
 
@@ -307,7 +361,11 @@ function toBase64Url(str: string): string {
       .replace(/\//g, '_')
       .replace(/=+$/, '');
   }
-  return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (_, p1) => String.fromCharCode(parseInt(p1, 16))))
+  return btoa(
+    encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (_, p1) =>
+      String.fromCharCode(parseInt(p1, 16))
+    )
+  )
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
     .replace(/=+$/, '');
@@ -333,16 +391,20 @@ function getSigningSecret(): string {
 }
 
 /**
- * Emite um token de sessão assinado com HMAC-SHA256.
+ * Emite um token de sessão assinado com HMAC-SHA256 vinculado à versão atual da senha (`pwdVer`).
  */
-export function createSignedSessionToken(user: CorporateUserProfile): string {
+export function createSignedSessionToken(
+  user: CorporateUserProfile,
+  activePasswordHash?: string | null
+): string {
   const now = Date.now();
   const header = toBase64Url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
   const payloadObj: SessionTokenPayload = {
     sub: user.username,
     name: user.name,
-    role: user.role,
+    role: normalizeRoleCode(user.role),
     email: user.email,
+    pwdVer: getPasswordVersionTag(activePasswordHash),
     iat: now,
     exp: now + TOKEN_TTL_MS,
   };
@@ -352,9 +414,12 @@ export function createSignedSessionToken(user: CorporateUserProfile): string {
 }
 
 /**
- * Verifica a assinatura HMAC-SHA256 e a validade temporal do token de sessão.
+ * Verifica a assinatura HMAC-SHA256, a validade temporal e (opcionalmente) a versão da senha (`pwdVer`).
  */
-export function verifySignedSessionToken(token: string | null | undefined): SessionTokenPayload | null {
+export function verifySignedSessionToken(
+  token: string | null | undefined,
+  expectedPasswordHash?: string | null
+): SessionTokenPayload | null {
   if (!token || typeof token !== 'string') return null;
   const parts = token.split('.');
   if (parts.length !== 3) return null;
@@ -370,8 +435,229 @@ export function verifySignedSessionToken(token: string | null | undefined): Sess
     if (!decoded.sub || !decoded.exp || Date.now() > decoded.exp) {
       return null;
     }
+    if (decoded.role !== 'admin' && decoded.role !== 'viewer') {
+      return null;
+    }
+    if (expectedPasswordHash !== undefined && expectedPasswordHash !== null) {
+      const expectedVer = getPasswordVersionTag(expectedPasswordHash);
+      if (!decoded.pwdVer || !constantTimeEqual(decoded.pwdVer, expectedVer)) {
+        return null;
+      }
+    }
     return decoded;
   } catch {
     return null;
+  }
+}
+
+function getSupabaseRestConfig(): { url: string; key: string } {
+  const url =
+    (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_SUPABASE_URL) ||
+    'https://rmtacyjdumcwmasksvqz.supabase.co';
+  const key =
+    (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_SUPABASE_ANON_KEY) ||
+    'sb_publishable_EpVfAIR5fdX3J3Jo3bUY8Q_1gwerDPe';
+  return { url: url.replace(/\/+$/, ''), key };
+}
+
+/**
+ * Consulta no Supabase (`public.perfis_usuarios`) o perfil corporativo e o hash
+ * de senha personalizada (`username = "pwd_hash:<cleanUsername>"`) do operador.
+ */
+export async function fetchCorporateAuthStateFromSupabase(
+  rawUsername: string
+): Promise<CorporateSupabaseAuthState | null> {
+  const cleanUsername = normalizeCorporateUsername(rawUsername);
+  const baseProfile = CORPORATE_USERS[cleanUsername];
+  if (!baseProfile) return null;
+
+  const { url, key } = getSupabaseRestConfig();
+  const pwdRowUsername = `pwd_hash:${cleanUsername}`;
+  const query = `select=id,nome,email,role,username,primeiro_acesso&username=in.(${encodeURIComponent(
+    cleanUsername
+  )},${encodeURIComponent(pwdRowUsername)})`;
+
+  try {
+    const res = await fetch(`${url}/rest/v1/perfis_usuarios?${query}`, {
+      method: 'GET',
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+        Accept: 'application/json',
+      },
+      cache: 'no-store',
+    });
+
+    if (!res.ok) {
+      return {
+        username: baseProfile.username,
+        profileId: baseProfile.id,
+        name: baseProfile.name,
+        email: baseProfile.email,
+        role: baseProfile.role,
+        roleLabel: normalizeRoleLabel(baseProfile.role),
+        primeiroAcesso: false,
+        customPasswordHash: null,
+      };
+    }
+
+    const rows = (await res.json()) as Array<{
+      id?: string;
+      nome?: string;
+      email?: string;
+      role?: string;
+      username?: string;
+      primeiro_acesso?: boolean;
+    }>;
+
+    const profileRow = rows.find((r) => r.username === cleanUsername);
+    const pwdRow = rows.find((r) => r.username === pwdRowUsername);
+
+    const customPasswordHash =
+      pwdRow?.nome && isValidPasswordHash(pwdRow.nome) ? pwdRow.nome.trim().toLowerCase() : null;
+
+    const resolvedRole = profileRow?.role
+      ? normalizeRoleCode(profileRow.role)
+      : baseProfile.role;
+
+    return {
+      username: baseProfile.username,
+      profileId: profileRow?.id || baseProfile.id,
+      name: profileRow?.nome || baseProfile.name,
+      email: profileRow?.email || baseProfile.email,
+      role: resolvedRole,
+      roleLabel: normalizeRoleLabel(resolvedRole),
+      primeiroAcesso: Boolean(profileRow?.primeiro_acesso) && !customPasswordHash,
+      customPasswordHash,
+    };
+  } catch {
+    return {
+      username: baseProfile.username,
+      profileId: baseProfile.id,
+      name: baseProfile.name,
+      email: baseProfile.email,
+      role: baseProfile.role,
+      roleLabel: normalizeRoleLabel(baseProfile.role),
+      primeiroAcesso: false,
+      customPasswordHash: null,
+    };
+  }
+}
+
+/**
+ * Persiste o hash SHA-256 salgado da nova senha no Supabase (`public.perfis_usuarios`)
+ * de forma durável e desativa `primeiro_acesso`.
+ */
+export async function saveCorporatePasswordHashToSupabase(
+  rawUsername: string,
+  passwordHash: string
+): Promise<{ ok: boolean; error?: string }> {
+  const cleanUsername = normalizeCorporateUsername(rawUsername);
+  const baseProfile = CORPORATE_USERS[cleanUsername];
+  if (!baseProfile) {
+    return { ok: false, error: 'Usuário corporativo inválido.' };
+  }
+  if (!isValidPasswordHash(passwordHash)) {
+    return { ok: false, error: 'Hash criptográfico inválido.' };
+  }
+
+  const normalizedHash = passwordHash.trim().toLowerCase();
+  const { url, key } = getSupabaseRestConfig();
+  const pwdRowUsername = `pwd_hash:${cleanUsername}`;
+  const credentialRowId = CREDENTIAL_ROW_IDS[cleanUsername] || `c3dcfdda-0c83-426c-ac67-000000000009`;
+  const dbRole = baseProfile.role === 'admin' ? 'admin' : 'visualizador';
+
+  try {
+    // 1. Upsert do registro de credencial criptografada em public.perfis_usuarios
+    const upsertRes = await fetch(`${url}/rest/v1/perfis_usuarios?on_conflict=id`, {
+      method: 'POST',
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+        'Content-Type': 'application/json',
+        Prefer: 'resolution=merge-duplicates,return=minimal',
+      },
+      body: JSON.stringify({
+        id: credentialRowId,
+        username: pwdRowUsername,
+        nome: normalizedHash,
+        email: `pwd.${cleanUsername}@casagrandetransportes.com.br`,
+        role: dbRole,
+        primeiro_acesso: false,
+      }),
+    });
+
+    if (!upsertRes.ok) {
+      // Fallback: atualizar por username caso já exista com outro ID
+      const patchPwdRes = await fetch(
+        `${url}/rest/v1/perfis_usuarios?username=eq.${encodeURIComponent(pwdRowUsername)}`,
+        {
+          method: 'PATCH',
+          headers: {
+            apikey: key,
+            Authorization: `Bearer ${key}`,
+            'Content-Type': 'application/json',
+            Prefer: 'return=minimal',
+          },
+          body: JSON.stringify({
+            nome: normalizedHash,
+            primeiro_acesso: false,
+          }),
+        }
+      );
+      if (!patchPwdRes.ok) {
+        const errText = await upsertRes.text().catch(() => 'Erro ao gravar hash no Supabase.');
+        return { ok: false, error: errText };
+      }
+    }
+
+    // 2. Garantir primeiro_acesso = false no registro principal do perfil
+    await fetch(
+      `${url}/rest/v1/perfis_usuarios?username=eq.${encodeURIComponent(cleanUsername)}`,
+      {
+        method: 'PATCH',
+        headers: {
+          apikey: key,
+          Authorization: `Bearer ${key}`,
+          'Content-Type': 'application/json',
+          Prefer: 'return=minimal',
+        },
+        body: JSON.stringify({ primeiro_acesso: false }),
+      }
+    ).catch(() => {});
+
+    return { ok: true };
+  } catch (err: any) {
+    return { ok: false, error: err?.message || 'Falha de comunicação com o Supabase.' };
+  }
+}
+
+/**
+ * Sincroniza automaticamente hashes de senha alterados anteriormente no navegador (`localStorage`)
+ * para o banco de dados Supabase (`public.perfis_usuarios`), garantindo que a revogação da senha
+ * padrão (`Casagrande@2026`) seja imediatamente persistida no backend.
+ */
+export async function syncLocalPasswordHashesToSupabase(): Promise<void> {
+  if (typeof window === 'undefined') return;
+
+  for (const uname of Object.keys(CORPORATE_USERS)) {
+    try {
+      const localHash = localStorage.getItem(`csg_pwd_hash_v2_${uname}`);
+      if (
+        isValidPasswordHash(localHash) &&
+        !constantTimeEqual(localHash.trim().toLowerCase(), DEFAULT_CORPORATE_HASH)
+      ) {
+        const remoteState = await fetchCorporateAuthStateFromSupabase(uname);
+        if (!remoteState?.customPasswordHash) {
+          await saveCorporatePasswordHashToSupabase(uname, localHash);
+        } else if (remoteState.customPasswordHash !== localHash.trim().toLowerCase()) {
+          // O banco de dados centralizado prevalece sobre cache antigo
+          localStorage.setItem(`csg_pwd_hash_v2_${uname}`, remoteState.customPasswordHash);
+          localStorage.setItem(`csg_pw_changed_${uname}`, 'true');
+        }
+      }
+    } catch {
+      // Ignora falhas silenciosas de rede na sincronização em segundo plano
+    }
   }
 }

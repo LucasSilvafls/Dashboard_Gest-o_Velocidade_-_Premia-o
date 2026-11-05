@@ -19,7 +19,14 @@ import FirstAccessPasswordModal from '@/components/FirstAccessPasswordModal';
 import TelemetryPreloader from '@/components/TelemetryPreloader';
 import UploadSpreadsheetModal from '@/components/UploadSpreadsheetModal';
 import { supabase } from '@/lib/supabaseClient';
-import { verifySignedSessionToken } from '@/lib/auth-crypto';
+import {
+  verifySignedSessionToken,
+  isAdminRole,
+  normalizeRoleLabel,
+  syncLocalPasswordHashesToSupabase,
+  fetchCorporateAuthStateFromSupabase,
+  DEFAULT_CORPORATE_HASH,
+} from '@/lib/auth-crypto';
 
 import {
   INITIAL_ROAD_PARAMETERS,
@@ -72,6 +79,8 @@ export default function Home() {
   const [currentUser, setCurrentUser] = useState<AuthenticatedUser | null>(null);
   const [isCheckingSession, setIsCheckingSession] = useState<boolean>(true);
   const [isFirstAccessModalOpen, setIsFirstAccessModalOpen] = useState<boolean>(false);
+
+  const isAdmin = useMemo(() => isAdminRole(currentUser?.role), [currentUser?.role]);
 
   // Pré-carregador telemétrico: previne exibição de métricas mock ou travamentos iniciais
   const [isInitialLoading, setIsInitialLoading] = useState<boolean>(true);
@@ -171,34 +180,74 @@ export default function Home() {
 
     const checkInitialSession = async () => {
       try {
-        // 1. Verificar token de sessão assinado com HMAC-SHA256 (instantâneo)
+        void syncLocalPasswordHashesToSupabase();
+
+        // 1. Verificar token de sessão assinado com HMAC-SHA256 e versão da senha ativa
         if (typeof window !== 'undefined') {
           const backendToken = localStorage.getItem('csg_backend_token');
           if (backendToken) {
-            const verifiedPayload = verifySignedSessionToken(backendToken);
-            if (verifiedPayload && !isCancelled) {
-              const userObj: AuthenticatedUser = {
-                id: `cco-user-${verifiedPayload.sub}`,
-                name: verifiedPayload.name,
-                username: verifiedPayload.sub,
-                email: verifiedPayload.email,
-                role:
-                  verifiedPayload.role === 'admin'
-                    ? 'Supervisor de Telemetria & Operações'
-                    : 'Visualizador CCO',
-                primeiroAcesso: false,
-              };
-              setCurrentUser(userObj);
-              setIsAuthenticated(true);
-              try {
-                localStorage.setItem('csg_session_user_v1', JSON.stringify(userObj));
-              } catch {}
-              return;
+            const initialPayload = verifySignedSessionToken(backendToken);
+            if (initialPayload && !isCancelled) {
+              const localCustomHash = localStorage.getItem(
+                `csg_pwd_hash_v2_${initialPayload.sub}`
+              );
+              const verifiedPayload = verifySignedSessionToken(
+                backendToken,
+                localCustomHash || undefined
+              );
+
+              if (verifiedPayload) {
+                const userObj: AuthenticatedUser = {
+                  id: `cco-user-${verifiedPayload.sub}`,
+                  name: verifiedPayload.name,
+                  username: verifiedPayload.sub,
+                  email: verifiedPayload.email,
+                  role: normalizeRoleLabel(verifiedPayload.role),
+                  primeiroAcesso: false,
+                };
+                setCurrentUser(userObj);
+                setIsAuthenticated(true);
+                try {
+                  localStorage.setItem('csg_session_user_v1', JSON.stringify(userObj));
+                } catch {}
+
+                // Revalidação assíncrona contra o estado autoritativo no Supabase
+                void fetchCorporateAuthStateFromSupabase(verifiedPayload.sub).then((remote) => {
+                  if (!remote || isCancelled) return;
+                  const remoteTokenCheck = verifySignedSessionToken(
+                    backendToken,
+                    remote.customPasswordHash || DEFAULT_CORPORATE_HASH
+                  );
+                  if (!remoteTokenCheck) {
+                    localStorage.removeItem('csg_session_user_v1');
+                    localStorage.removeItem('csg_backend_token');
+                    setCurrentUser(null);
+                    setIsAuthenticated(false);
+                    return;
+                  }
+                  const syncedUser: AuthenticatedUser = {
+                    id: remote.profileId || userObj.id,
+                    name: remote.name || userObj.name,
+                    username: remote.username,
+                    email: remote.email || userObj.email,
+                    role: remote.roleLabel,
+                    primeiroAcesso: remote.primeiroAcesso,
+                  };
+                  setCurrentUser(syncedUser);
+                  try {
+                    localStorage.setItem('csg_session_user_v1', JSON.stringify(syncedUser));
+                  } catch {}
+                });
+                return;
+              } else {
+                localStorage.removeItem('csg_backend_token');
+                localStorage.removeItem('csg_session_user_v1');
+              }
             }
           }
         }
 
-        // 2. Verificar sessão ativa e assinada no Supabase Auth
+        // 2. Verificar sessão ativa e assinada no Supabase Auth (Deny by Default para role)
         const sessionPromise = supabase.auth.getSession().catch(() => ({ data: { session: null } }));
         const timeoutPromise = new Promise<{ data: { session: null } }>((resolve) =>
           setTimeout(() => resolve({ data: { session: null } }), 1200)
@@ -209,16 +258,21 @@ export default function Home() {
 
         if (session?.user && !isCancelled) {
           const email = session.user.email || '';
-          const uname = session.user.user_metadata?.username || email.split('@')[0] || 'admincasagrande';
-          const name = session.user.user_metadata?.nome || (uname.includes('rafael') ? 'Rafael Casagrande' : 'Administrador CCO');
+          const uname = session.user.user_metadata?.username || email.split('@')[0] || 'operadorcasagrande';
+          const remoteState = await fetchCorporateAuthStateFromSupabase(uname);
+          const resolvedRole = remoteState?.roleLabel || normalizeRoleLabel(session.user.user_metadata?.role);
+          const name =
+            remoteState?.name ||
+            session.user.user_metadata?.nome ||
+            (uname.includes('rafael') ? 'Rafael Casagrande' : 'Operador CCO');
 
           const userObj: AuthenticatedUser = {
             id: session.user.id,
             name,
-            username: uname,
-            email,
-            role: session.user.user_metadata?.role || 'admin',
-            primeiroAcesso: false,
+            username: remoteState?.username || uname,
+            email: remoteState?.email || email,
+            role: resolvedRole,
+            primeiroAcesso: Boolean(remoteState?.primeiroAcesso),
           };
 
           setCurrentUser(userObj);
@@ -229,7 +283,7 @@ export default function Home() {
           return;
         }
 
-        // 3. Verificar sessão ativa emitida pelo Backend FastAPI (/api/auth/me)
+        // 3. Verificar sessão ativa emitida pelo Backend (/api/auth/me)
         if (typeof window !== 'undefined') {
           const backendToken = localStorage.getItem('csg_backend_token');
           if (backendToken) {
@@ -241,12 +295,12 @@ export default function Home() {
                 const meData = await meRes.json();
                 if (meData?.username && !isCancelled) {
                   const userObj: AuthenticatedUser = {
-                    id: `api-user-${meData.id || meData.username}`,
+                    id: meData.id || `api-user-${meData.username}`,
                     name: meData.nome_completo || meData.username,
                     username: meData.username,
                     email: meData.email || `${meData.username}@casagrandetransportes.com.br`,
-                    role: meData.role === 'admin' ? 'Supervisor de Telemetria & Operações' : 'Visualizador CCO',
-                    primeiroAcesso: false,
+                    role: normalizeRoleLabel(meData.role_label || meData.role),
+                    primeiroAcesso: Boolean(meData.primeiro_acesso),
                   };
                   setCurrentUser(userObj);
                   setIsAuthenticated(true);
@@ -474,12 +528,18 @@ export default function Home() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isSidebarCollapsed]);
 
-  // URL hash navigation support: só navega nas telas se estiver autenticado
+  // URL hash navigation support: só navega nas telas se estiver autenticado e autorizado (RBAC)
   useEffect(() => {
     const handleHash = () => {
       const hash = window.location.hash.replace('#', '');
       if (hash === 'login') {
         handleLogout();
+        return;
+      }
+      if (hash === 'painel-admin-e-parametrizacoes' && currentUser && !isAdminRole(currentUser.role)) {
+        setCurrentScreen('resumo-geral-e-horarios');
+        window.location.hash = 'resumo-geral-e-horarios';
+        showToast('Acesso restrito: o Painel Admin é exclusivo para Administradores CCO.');
         return;
       }
       if (
@@ -500,23 +560,39 @@ export default function Home() {
     handleHash();
     window.addEventListener('hashchange', handleHash);
     return () => window.removeEventListener('hashchange', handleHash);
-  }, []);
+  }, [currentUser, showToast]);
 
   const handleSelectScreen = (screen: ScreenId) => {
+    if (screen === 'painel-admin-e-parametrizacoes' && !isAdmin) {
+      showToast('Acesso restrito: apenas Administradores CCO podem acessar o Painel Admin.');
+      setCurrentScreen('resumo-geral-e-horarios');
+      window.location.hash = 'resumo-geral-e-horarios';
+      return;
+    }
     setCurrentScreen(screen);
     window.location.hash = screen;
   };
 
   const handleLoginSuccess = (user: AuthenticatedUser) => {
-    setCurrentUser(user);
+    const normalizedUser: AuthenticatedUser = {
+      ...user,
+      role: normalizeRoleLabel(user.role),
+    };
+    setCurrentUser(normalizedUser);
     setIsAuthenticated(true);
+    if (!isAdminRole(normalizedUser.role) && currentScreen === 'painel-admin-e-parametrizacoes') {
+      setCurrentScreen('resumo-geral-e-horarios');
+      if (typeof window !== 'undefined') {
+        window.location.hash = 'resumo-geral-e-horarios';
+      }
+    }
     try {
-      localStorage.setItem('csg_session_user_v1', JSON.stringify(user));
+      localStorage.setItem('csg_session_user_v1', JSON.stringify(normalizedUser));
     } catch {}
-    if (user.primeiroAcesso) {
+    if (normalizedUser.primeiroAcesso) {
       setIsFirstAccessModalOpen(true);
     }
-    showToast(`Autenticação autorizada! Bem-vindo(a), ${user.name}`);
+    showToast(`Autenticação autorizada! Bem-vindo(a), ${normalizedUser.name}`);
   };
 
   const handleLogout = async () => {
@@ -533,8 +609,12 @@ export default function Home() {
     showToast('Sessão encerrada com sucesso no CCO.');
   };
 
-  // Conciliation action: Link driver to an anonymous incident
+  // Conciliation action: Link driver to an anonymous incident (Exclusivo Admin)
   const handleLinkDriver = (incidentId: string) => {
+    if (!isAdmin) {
+      showToast('Acesso negado: conciliação de condutores exige perfil de Administrador CCO.');
+      return;
+    }
     setIncidents((prev) =>
       prev.map((item) => {
         if (item.id === incidentId) {
@@ -551,9 +631,12 @@ export default function Home() {
       })
     );
 
-    // Add audit log entry
+    const operatorLabel = currentUser
+      ? `${currentUser.name} (${currentUser.username})`
+      : 'Administrador CCO';
     const newLog = createAuditLogEntry(
-      `Conciliação retroativa realizada para o evento ${incidentId}`
+      `Conciliação retroativa realizada para o evento ${incidentId}`,
+      operatorLabel
     );
     appendAuditLog(newLog);
 
@@ -563,8 +646,12 @@ export default function Home() {
     }
   };
 
-  // Save/Update Road parameters
+  // Save/Update Road parameters (Exclusivo Admin)
   const handleSaveRoadParam = (param: RoadParameter) => {
+    if (!isAdmin) {
+      showToast('Acesso negado: edição de limites viários exige perfil de Administrador CCO.');
+      return;
+    }
     setRoadParams((prev) => {
       const exists = prev.some((p) => p.id === param.id);
       const updated = exists ? prev.map((p) => (p.id === param.id ? param : p)) : [...prev, param];
@@ -576,16 +663,24 @@ export default function Home() {
       return updated;
     });
 
+    const operatorLabel = currentUser
+      ? `${currentUser.name} (${currentUser.username})`
+      : 'Administrador CCO';
     const newLog = createAuditLogEntry(
-      `Atualização de parâmetros para o trecho ${param.road} (${param.section})`
+      `Atualização de parâmetros para o trecho ${param.road} (${param.section})`,
+      operatorLabel
     );
     appendAuditLog(newLog);
 
     showToast(`Parâmetros da rodovia ${param.road} atualizados com sucesso!`);
   };
 
-  // Rule settings update
+  // Rule settings update (Exclusivo Admin)
   const handleSaveRules = (minHours: number, baseBonus: string) => {
+    if (!isAdmin) {
+      showToast('Acesso negado: alteração de regras de premiação exige perfil de Administrador CCO.');
+      return;
+    }
     const updated: BonusRules = { minHours, baseBonus };
     setBonusRules(updated);
 
@@ -597,8 +692,12 @@ export default function Home() {
       }
     }
 
+    const operatorLabel = currentUser
+      ? `${currentUser.name} (${currentUser.username})`
+      : 'Administrador CCO';
     const newLog = createAuditLogEntry(
-      `Atualização de regras globais: Carga mínima ${minHours}h/mês, Bonificação base R$ ${baseBonus}`
+      `Atualização de regras globais: Carga mínima ${minHours}h/mês, Bonificação base R$ ${baseBonus}`,
+      operatorLabel
     );
     appendAuditLog(newLog);
     showToast(`Parâmetros e regras salvos com sucesso! Bonificação: R$ ${baseBonus}`);
@@ -675,15 +774,16 @@ export default function Home() {
           isSidebarCollapsed ? 'lg:pl-[68px]' : 'lg:pl-[272px]'
         }`}
       >
-        {/* Fixed Top Header com métricas consistentes */}
+        {/* Fixed Top Header com métricas consistentes e RBAC */}
         <TopHeader
           isSidebarCollapsed={isSidebarCollapsed}
           onToggleMobileMenu={() => setIsMobileDrawerOpen((prev) => !prev)}
           onOpenNotifications={() => setIsNotificationsOpen(true)}
           onOpenProfile={() => setIsProfileOpen(true)}
-          onOpenUpload={() => setIsUploadModalOpen(true)}
+          onOpenUpload={isAdmin ? () => setIsUploadModalOpen(true) : undefined}
           onRefreshData={() => loadSupabaseData(false)}
           isRefreshing={isRefreshing}
+          user={currentUser}
           stats={
             stats
               ? {
@@ -737,12 +837,12 @@ export default function Home() {
             <AuditUnidentifiedScreen
               incidents={incidents}
               onSelectIncident={(inc) => setSelectedIncident(inc)}
-              onLinkDriver={handleLinkDriver}
+              onLinkDriver={isAdmin ? handleLinkDriver : undefined}
               filterState={filterState}
             />
           )}
 
-          {currentScreen === 'painel-admin-e-parametrizacoes' && (
+          {currentScreen === 'painel-admin-e-parametrizacoes' && isAdmin && (
             <AdminParamsScreen
               roadParams={roadParams}
               auditLogs={auditLogs}
@@ -771,32 +871,40 @@ export default function Home() {
               localStorage.setItem('csg_session_user_v1', JSON.stringify(updated));
               localStorage.setItem(`csg_pw_changed_${currentUser.username}`, 'true');
             } catch {}
+            appendAuditLog(
+              createAuditLogEntry(
+                `Redefinição de senha pessoal CCO persistida no Supabase e revogação da senha padrão`,
+                `${currentUser.name} (${currentUser.username})`
+              )
+            );
           }
-          showToast('Senha de acesso pessoal gravada com sucesso!');
+          showToast('Nova senha pessoal gravada no Supabase! Senha padrão desativada.');
         }}
         onLogout={handleLogout}
       />
 
-      <UploadSpreadsheetModal
-        isOpen={isUploadModalOpen}
-        onClose={() => setIsUploadModalOpen(false)}
-        onUploadSuccess={(msg, details) => {
-          showToast(msg);
-          if (details) {
-            const uploadLog = createAuditLogEntry(
-              `Upload da planilha "${details.fileName}": ${details.inserted} novos eventos ingeridos, ${details.duplicates} duplicados ignorados`,
-              currentUser?.name || 'Operador CCO'
-            );
-            appendAuditLog(uploadLog);
-          }
-          loadSupabaseData(true);
-        }}
-      />
+      {isAdmin && (
+        <UploadSpreadsheetModal
+          isOpen={isUploadModalOpen}
+          onClose={() => setIsUploadModalOpen(false)}
+          onUploadSuccess={(msg, details) => {
+            showToast(msg);
+            if (details) {
+              const uploadLog = createAuditLogEntry(
+                `Upload da planilha "${details.fileName}": ${details.inserted} novos eventos ingeridos, ${details.duplicates} duplicados ignorados`,
+                currentUser ? `${currentUser.name} (${currentUser.username})` : 'Administrador CCO'
+              );
+              appendAuditLog(uploadLog);
+            }
+            loadSupabaseData(true);
+          }}
+        />
+      )}
 
       <IncidentDetailModal
         incident={selectedIncident}
         onClose={() => setSelectedIncident(null)}
-        onLinkDriver={handleLinkDriver}
+        onLinkDriver={isAdmin ? handleLinkDriver : undefined}
       />
 
       <DriverDetailModal
@@ -805,15 +913,17 @@ export default function Home() {
         bonusAmount={bonusRules.baseBonus}
       />
 
-      <RoadParamModal
-        param={editingRoadParam}
-        isOpen={isRoadModalOpen}
-        onClose={() => {
-          setIsRoadModalOpen(false);
-          setEditingRoadParam(null);
-        }}
-        onSave={handleSaveRoadParam}
-      />
+      {isAdmin && (
+        <RoadParamModal
+          param={editingRoadParam}
+          isOpen={isRoadModalOpen}
+          onClose={() => {
+            setIsRoadModalOpen(false);
+            setEditingRoadParam(null);
+          }}
+          onSave={handleSaveRoadParam}
+        />
+      )}
 
       <NotificationsModal
         isOpen={isNotificationsOpen}

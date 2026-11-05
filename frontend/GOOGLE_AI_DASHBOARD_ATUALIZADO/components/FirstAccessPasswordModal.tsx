@@ -1,9 +1,17 @@
 'use client';
 
 import React, { useState } from 'react';
-import { supabase } from '@/lib/supabaseClient';
-import { hashCorporatePassword, normalizeCorporateUsername } from '@/lib/auth-crypto';
-import { ShieldCheck, Lock, Eye, EyeOff, AlertCircle, CheckCircle2 } from 'lucide-react';
+import {
+  hashCorporatePassword,
+  normalizeCorporateUsername,
+  fetchCorporateAuthStateFromSupabase,
+  saveCorporatePasswordHashToSupabase,
+  verifyCorporateCredentials,
+  createSignedSessionToken,
+  DEFAULT_CORPORATE_HASH,
+  constantTimeEqual,
+} from '@/lib/auth-crypto';
+import { ShieldCheck, Lock, Eye, EyeOff, AlertCircle, CheckCircle2, KeyRound } from 'lucide-react';
 
 interface FirstAccessPasswordModalProps {
   isOpen: boolean;
@@ -12,6 +20,7 @@ interface FirstAccessPasswordModalProps {
     name: string;
     username: string;
     email: string;
+    primeiroAcesso?: boolean;
   } | null;
   onPasswordChanged: () => void;
   onLogout?: () => void;
@@ -23,8 +32,10 @@ export default function FirstAccessPasswordModal({
   onPasswordChanged,
   onLogout,
 }: FirstAccessPasswordModalProps) {
+  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -36,17 +47,28 @@ export default function FirstAccessPasswordModal({
     e.preventDefault();
     setErrorMessage(null);
 
-    // Validações
+    if (!currentPassword) {
+      setErrorMessage('Informe sua senha atual para autorizar a alteração.');
+      return;
+    }
+
     if (!newPassword || newPassword.length < 6) {
       setErrorMessage('A nova senha deve ter no mínimo 6 caracteres.');
       return;
     }
 
+    const pwdHash = hashCorporatePassword(newPassword);
     if (
       newPassword.toLowerCase() === 'casagrande@2026' ||
-      newPassword.toLowerCase() === 'admin@casagrande2026'
+      newPassword.toLowerCase() === 'admin@casagrande2026' ||
+      constantTimeEqual(pwdHash, DEFAULT_CORPORATE_HASH)
     ) {
       setErrorMessage('A nova senha não pode ser igual à senha padrão corporativa.');
+      return;
+    }
+
+    if (newPassword === currentPassword) {
+      setErrorMessage('A nova senha deve ser diferente da senha atual.');
       return;
     }
 
@@ -58,54 +80,78 @@ export default function FirstAccessPasswordModal({
     setIsSubmitting(true);
 
     const cleanUname = normalizeCorporateUsername(user?.username || 'admincasagrande');
-    const pwdHash = hashCorporatePassword(newPassword);
 
     try {
-      // 1. Atualizar a senha no Supabase Auth (se houver sessão ativa no provedor)
-      const { error: authError } = await supabase.auth.updateUser({
-        password: newPassword,
-        data: {
-          primeiro_acesso: false,
-        },
-      });
+      // 1. Tenta processar a alteração via endpoint de servidor (/api/auth/change-password)
+      let changedViaApi = false;
+      try {
+        const res = await fetch('/api/auth/change-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: cleanUname,
+            currentPassword,
+            newPassword,
+          }),
+        });
 
-      if (authError) {
-        console.warn('Aviso auth.updateUser:', authError);
+        if (res.ok) {
+          const data = await res.json();
+          if (typeof window !== 'undefined') {
+            try {
+              localStorage.setItem(`csg_pw_changed_${cleanUname}`, 'true');
+              localStorage.setItem(`csg_pwd_hash_v2_${cleanUname}`, data.password_hash || pwdHash);
+              localStorage.removeItem(`csg_custom_pass_${cleanUname}`);
+              if (data.access_token) {
+                localStorage.setItem('csg_backend_token', data.access_token);
+              }
+            } catch {}
+          }
+          changedViaApi = true;
+        } else if (res.status === 400 || res.status === 401 || res.status === 404) {
+          const errData = await res.json().catch(() => ({}));
+          setErrorMessage(errData?.detail || 'Não foi possível validar a senha atual.');
+          return;
+        }
+      } catch {
+        // Fallback direto para o Supabase REST caso a rota local não responda
       }
 
-      // 2. Atualizar a flag primeiro_acesso na tabela public.perfis_usuarios
-      if (user?.id) {
-        await supabase
-          .from('perfis_usuarios')
-          .update({ primeiro_acesso: false })
-          .eq('id', user.id);
-      } else if (user?.username) {
-        await supabase
-          .from('perfis_usuarios')
-          .update({ primeiro_acesso: false })
-          .eq('username', user.username);
+      if (!changedViaApi) {
+        const authState = await fetchCorporateAuthStateFromSupabase(cleanUname);
+        const verified = verifyCorporateCredentials(
+          cleanUname,
+          currentPassword,
+          authState?.customPasswordHash
+        );
+        if (!verified) {
+          setErrorMessage('A senha atual informada está incorreta.');
+          return;
+        }
+
+        const saveRes = await saveCorporatePasswordHashToSupabase(cleanUname, pwdHash);
+        if (!saveRes.ok) {
+          setErrorMessage(saveRes.error || 'Erro ao gravar a nova senha no Supabase.');
+          return;
+        }
+
+        const newToken = createSignedSessionToken(verified, pwdHash);
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem(`csg_pw_changed_${cleanUname}`, 'true');
+            localStorage.setItem(`csg_pwd_hash_v2_${cleanUname}`, pwdHash);
+            localStorage.removeItem(`csg_custom_pass_${cleanUname}`);
+            localStorage.setItem('csg_backend_token', newToken);
+          } catch {}
+        }
       }
 
-      // 3. Registrar apenas o hash criptográfico SHA-256 (sem gravar senhas em texto puro)
-      if (typeof window !== 'undefined' && cleanUname) {
-        try {
-          localStorage.setItem(`csg_pw_changed_${cleanUname}`, 'true');
-          localStorage.setItem(`csg_pwd_hash_v2_${cleanUname}`, pwdHash);
-          localStorage.removeItem(`csg_custom_pass_${cleanUname}`);
-        } catch {}
-      }
-
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
       onPasswordChanged();
-    } catch (err: any) {
-      console.warn('Erro ao atualizar senha no Supabase:', err);
-      if (typeof window !== 'undefined' && cleanUname) {
-        try {
-          localStorage.setItem(`csg_pw_changed_${cleanUname}`, 'true');
-          localStorage.setItem(`csg_pwd_hash_v2_${cleanUname}`, pwdHash);
-          localStorage.removeItem(`csg_custom_pass_${cleanUname}`);
-        } catch {}
-      }
-      onPasswordChanged();
+    } catch {
+      setErrorMessage('Erro ao processar a alteração de senha. Tente novamente.');
     } finally {
       setIsSubmitting(false);
     }
@@ -125,11 +171,11 @@ export default function FirstAccessPasswordModal({
                 Redefinição de Senha CCO
               </h3>
               <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#34b344]/20 text-[#34b344] border border-[#34b344]/30">
-                CRIPTOGRAFADO
+                PERSISTIDO NO SUPABASE
               </span>
             </div>
             <p className="text-xs text-[#94a3b8] mt-1 leading-relaxed">
-              Olá, <strong className="text-white">{user?.name || user?.username}</strong>. Defina sua chave de acesso pessoal protegida por hash SHA-256.
+              Olá, <strong className="text-white">{user?.name || user?.username}</strong>. Defina sua chave de acesso pessoal protegida por hash SHA-256. A senha padrão será revogada.
             </p>
           </div>
         </div>
@@ -149,6 +195,38 @@ export default function FirstAccessPasswordModal({
             <span className="text-white font-bold bg-[#1c2432] px-2 py-0.5 rounded border border-[#283548]">
               {user?.username || 'admincasagrande'}
             </span>
+          </div>
+
+          {/* Senha Atual (Reautenticação obrigatória) */}
+          <div className="space-y-1.5">
+            <label
+              htmlFor="first-current-password"
+              className="block text-[11px] font-bold uppercase tracking-wider text-[#94a3b8]"
+            >
+              Senha Atual
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#94a3b8]">
+                <KeyRound className="size-4" />
+              </div>
+              <input
+                id="first-current-password"
+                type={showCurrentPassword ? 'text' : 'password'}
+                required
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                placeholder="Digite sua senha atual"
+                className="w-full pl-10 pr-11 py-2.5 rounded-xl bg-[#1c2432] border border-[#283548] text-white placeholder:text-[#64748b] text-sm focus:outline-none focus:border-[#34b344] focus:ring-1 focus:ring-[#34b344] transition-all"
+              />
+              <button
+                type="button"
+                onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-[#94a3b8] hover:text-white transition-colors cursor-pointer"
+                aria-label={showCurrentPassword ? 'Ocultar senha atual' : 'Ver senha atual'}
+              >
+                {showCurrentPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+              </button>
+            </div>
           </div>
 
           {/* Nova Senha */}
@@ -221,8 +299,8 @@ export default function FirstAccessPasswordModal({
               <CheckCircle2 className="size-3.5 text-[#34b344]" />
               <span>Diretrizes de Segurança:</span>
             </div>
+            <p>• Ao salvar, a senha padrão corporativa é revogada permanentemente no banco de dados.</p>
             <p>• Escolha uma senha segura de uso pessoal e intransferível.</p>
-            <p>• Você poderá alterá-la futuramente nas configurações do seu perfil CCO.</p>
           </div>
 
           {/* Botões de Ação */}
@@ -244,7 +322,7 @@ export default function FirstAccessPasswordModal({
               {isSubmitting ? (
                 <>
                   <span className="size-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span>Gravando Senha...</span>
+                  <span>Persistindo no Supabase...</span>
                 </>
               ) : (
                 <>

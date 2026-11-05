@@ -3,11 +3,17 @@
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { useTheme } from '@/lib/ThemeContext';
-import { supabase } from '@/lib/supabaseClient';
 import {
   normalizeCorporateUsername,
   verifyCorporateCredentials,
   createSignedSessionToken,
+  fetchCorporateAuthStateFromSupabase,
+  saveCorporatePasswordHashToSupabase,
+  syncLocalPasswordHashesToSupabase,
+  isValidPasswordHash,
+  hashCorporatePassword,
+  DEFAULT_CORPORATE_HASH,
+  constantTimeEqual,
 } from '@/lib/auth-crypto';
 import {
   CASAGRANDE_LOGO_DARK_URL,
@@ -42,6 +48,8 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
 
   useEffect(() => {
     setMounted(true);
+    // Sincroniza eventuais senhas alteradas localmente com o Supabase (perfis_usuarios)
+    void syncLocalPasswordHashesToSupabase();
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -60,67 +68,58 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
       return;
     }
 
-    // Normalização de apelidos comuns (ex: "admin", "administrador", "rafael", "operador")
+    // Normalização estrita de apelidos corporativos conhecidos
     const cleanUsername = normalizeCorporateUsername(rawInput);
-
-    // Sintetiza o email corporativo para autenticação no Supabase Auth
-    const effectiveEmail = rawInput.includes('@')
-      ? rawInput
-      : `${cleanUsername}@casagrandetransportes.com.br`;
 
     setIsLoading(true);
 
     try {
-      // 1. Consultar dados do perfil na tabela perfis_usuarios
-      let profileData: any = null;
-      try {
-        const { data: prof } = await supabase
-          .from('perfis_usuarios')
-          .select('*')
-          .or(`username.eq.${cleanUsername},email.eq.${effectiveEmail}`)
-          .maybeSingle();
-        profileData = prof;
-      } catch (eProf) {
-        console.warn('Aviso: falha ao consultar perfis_usuarios:', eProf);
-      }
-
-      const customHash =
+      // 1. Verificar estado de credenciais no navegador e sincronizar com Supabase se necessário
+      const localCustomHash =
         typeof window !== 'undefined'
           ? localStorage.getItem(`csg_pwd_hash_v2_${cleanUsername}`)
           : null;
+      const localPwChanged =
+        typeof window !== 'undefined'
+          ? localStorage.getItem(`csg_pw_changed_${cleanUsername}`) === 'true'
+          : false;
 
-      // 2. Autenticação criptográfica primária: Supabase Auth
-      try {
-        const targetEmail = profileData?.email || effectiveEmail;
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: targetEmail,
-          password,
-        });
-
-        if (!error && data?.user) {
-          const meta = data.user.user_metadata || {};
-
-          onLoginSuccess({
-            id: data.user.id || profileData?.id,
-            name:
-              profileData?.nome ||
-              meta.nome ||
-              (cleanUsername.includes('rafael') ? 'Rafael Casagrande' : 'Administrador CCO'),
-            username: profileData?.username || cleanUsername,
-            role:
-              profileData?.role === 'admin' || meta.role === 'admin'
-                ? 'Supervisor de Telemetria & Operações'
-                : 'Visualizador CCO',
-            email: data.user.email || targetEmail,
-            primeiroAcesso: false,
-          });
-          return;
-        }
-      } catch (authErr) {
-        console.warn('Aviso: falha na tentativa via Supabase Auth:', authErr);
+      const authState = await fetchCorporateAuthStateFromSupabase(cleanUsername);
+      if (!authState) {
+        setErrorMsg('Usuário não encontrado ou sem permissão no CCO.');
+        return;
       }
 
-      // 3. Autenticação criptográfica secundária: API Server (/api/auth/login)
+      let activeCustomHash = authState.customPasswordHash;
+
+      // Se o navegador possui hash de senha alterada que ainda não havia sido persistido no Supabase,
+      // persiste imediatamente no Supabase antes de prosseguir com a validação.
+      if (
+        !activeCustomHash &&
+        isValidPasswordHash(localCustomHash) &&
+        !constantTimeEqual(localCustomHash.trim().toLowerCase(), DEFAULT_CORPORATE_HASH)
+      ) {
+        await saveCorporatePasswordHashToSupabase(cleanUsername, localCustomHash);
+        activeCustomHash = localCustomHash.trim().toLowerCase();
+      } else if (activeCustomHash && typeof window !== 'undefined') {
+        try {
+          localStorage.setItem(`csg_pwd_hash_v2_${cleanUsername}`, activeCustomHash);
+          localStorage.setItem(`csg_pw_changed_${cleanUsername}`, 'true');
+        } catch {}
+      }
+
+      const passwordChanged = Boolean(activeCustomHash) || localPwChanged;
+      const candidateHash = hashCorporatePassword(password);
+
+      // Bloqueio explícito da senha padrão ("Casagrande@2026") caso o usuário já tenha alterado a senha
+      if (passwordChanged && constantTimeEqual(candidateHash, DEFAULT_CORPORATE_HASH)) {
+        setErrorMsg(
+          'A senha padrão inicial foi desativada após a alteração de credenciais. Utilize sua nova senha pessoal.'
+        );
+        return;
+      }
+
+      // 2. Autenticação primária via endpoint seguro (/api/auth/login)
       try {
         const apiRes = await fetch('/api/auth/login', {
           method: 'POST',
@@ -128,7 +127,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
           body: JSON.stringify({
             username: cleanUsername,
             password,
-            customHash,
+            passwordChangedLocally: passwordChanged,
           }),
         });
 
@@ -139,45 +138,55 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
               localStorage.setItem('csg_backend_token', tokenData.access_token);
             }
             onLoginSuccess({
-              id: profileData?.id || `api-user-${tokenData.username}`,
-              name: profileData?.nome || tokenData.nome_completo || 'Administrador CCO',
-              username: tokenData.username,
-              role:
-                tokenData.role === 'admin'
-                  ? 'Supervisor de Telemetria & Operações'
-                  : 'Visualizador CCO',
-              email:
-                profileData?.email ||
-                tokenData.email ||
-                `${tokenData.username}@casagrandetransportes.com.br`,
-              primeiroAcesso: false,
+              id: tokenData.id || authState.profileId,
+              name: tokenData.nome_completo || authState.name,
+              username: tokenData.username || authState.username,
+              role: tokenData.role_label || authState.roleLabel,
+              email: tokenData.email || authState.email,
+              primeiroAcesso: Boolean(tokenData.primeiro_acesso),
             });
             return;
           }
+        } else if (apiRes.status === 401 || apiRes.status === 400) {
+          const errBody = await apiRes.json().catch(() => ({}));
+          setErrorMsg(errBody?.detail || 'Usuário ou senha incorretos no CCO.');
+          return;
         }
       } catch {
-        // Segue para verificação criptográfica SHA-256 local caso o endpoint esteja offline
+        // Segue apenas se o endpoint de API estiver inacessível (modo offline/contingência)
       }
 
-      // 4. Verificação criptográfica SHA-256 + Emissão de Token HMAC-SHA256
-      const verifiedProfile = verifyCorporateCredentials(cleanUsername, password, customHash);
+      // 3. Verificação criptográfica SHA-256 estrita (respeitando obrigatoriamente activeCustomHash)
+      const verifiedProfile = verifyCorporateCredentials(
+        cleanUsername,
+        password,
+        activeCustomHash
+      );
+
       if (verifiedProfile) {
-        const signedToken = createSignedSessionToken(verifiedProfile);
+        const effectiveProfile = {
+          ...verifiedProfile,
+          id: authState.profileId || verifiedProfile.id,
+          name: authState.name || verifiedProfile.name,
+          email: authState.email || verifiedProfile.email,
+          role: authState.role,
+          roleLabel: authState.roleLabel,
+        };
+        const signedToken = createSignedSessionToken(effectiveProfile, activeCustomHash);
         if (typeof window !== 'undefined') {
           localStorage.setItem('csg_backend_token', signedToken);
         }
         onLoginSuccess({
-          id: profileData?.id || verifiedProfile.id,
-          name: profileData?.nome || verifiedProfile.name,
-          username: verifiedProfile.username,
-          role: verifiedProfile.roleLabel,
-          email: profileData?.email || verifiedProfile.email,
-          primeiroAcesso: false,
+          id: effectiveProfile.id,
+          name: effectiveProfile.name,
+          username: effectiveProfile.username,
+          role: effectiveProfile.roleLabel,
+          email: effectiveProfile.email,
+          primeiroAcesso: authState.primeiroAcesso,
         });
         return;
       }
 
-      // Credenciais não validadas por nenhum dos provedores criptográficos
       setErrorMsg('Usuário ou senha incorretos no CCO.');
     } catch {
       setErrorMsg('Erro ao conectar com o serviço de autenticação.');

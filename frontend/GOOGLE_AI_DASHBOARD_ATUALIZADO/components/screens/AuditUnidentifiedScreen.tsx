@@ -8,7 +8,7 @@ import { OperationalFilterBar, useOperationalFilters, OperationalFilterState } f
 interface AuditUnidentifiedScreenProps {
   incidents: Incident[];
   onSelectIncident: (incident: Incident) => void;
-  onLinkDriver: (incidentId: string) => void;
+  onLinkDriver?: (incidentId: string) => void;
   filterState?: OperationalFilterState;
 }
 
@@ -263,7 +263,9 @@ export default function AuditUnidentifiedScreen({
   }, [sortedIncidents, currentPage, pageSize]);
 
   const handleLink = (id: string) => {
-    onLinkDriver(id);
+    if (onLinkDriver) {
+      onLinkDriver(id);
+    }
   };
 
   const handleExportCSV = () => {
@@ -898,7 +900,7 @@ export default function AuditUnidentifiedScreen({
                       </span>
                     </td>
                     <td className="py-2.5 px-3 text-right">
-                      {inc.suggestedDriver && !inc.hasDriver && (
+                      {onLinkDriver && inc.suggestedDriver && !inc.hasDriver && (
                         <button
                           type="button"
                           onClick={() => handleLink(inc.id)}

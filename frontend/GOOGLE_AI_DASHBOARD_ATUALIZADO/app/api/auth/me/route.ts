@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifySignedSessionToken } from '@/lib/auth-crypto';
+import {
+  verifySignedSessionToken,
+  fetchCorporateAuthStateFromSupabase,
+  DEFAULT_CORPORATE_HASH,
+} from '@/lib/auth-crypto';
 
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get('authorization') || '';
@@ -7,21 +11,43 @@ export async function GET(req: NextRequest) {
     ? authHeader.slice(7).trim()
     : '';
 
-  const payload = verifySignedSessionToken(token);
-  if (!payload) {
+  const initialPayload = verifySignedSessionToken(token);
+  if (!initialPayload) {
     return NextResponse.json(
       { detail: 'Token de sessão inválido ou expirado.' },
       { status: 401 }
     );
   }
 
+  const authState = await fetchCorporateAuthStateFromSupabase(initialPayload.sub);
+  if (!authState) {
+    return NextResponse.json(
+      { detail: 'Perfil de operador não encontrado.' },
+      { status: 401 }
+    );
+  }
+
+  // Revalida o token contra o hash de senha ativo no Supabase (invalida sessões antigas após troca de senha)
+  const verifiedPayload = verifySignedSessionToken(
+    token,
+    authState.customPasswordHash || DEFAULT_CORPORATE_HASH
+  );
+  if (!verifiedPayload) {
+    return NextResponse.json(
+      { detail: 'Sessão expirada devido à alteração de credenciais. Faça login novamente.' },
+      { status: 401 }
+    );
+  }
+
   return NextResponse.json(
     {
-      id: `cco-user-${payload.sub}`,
-      username: payload.sub,
-      email: payload.email,
-      role: payload.role,
-      nome_completo: payload.name,
+      id: authState.profileId || `cco-user-${verifiedPayload.sub}`,
+      username: authState.username,
+      email: authState.email,
+      role: authState.role,
+      role_label: authState.roleLabel,
+      nome_completo: authState.name,
+      primeiro_acesso: authState.primeiroAcesso,
       ativo: true,
     },
     { status: 200 }

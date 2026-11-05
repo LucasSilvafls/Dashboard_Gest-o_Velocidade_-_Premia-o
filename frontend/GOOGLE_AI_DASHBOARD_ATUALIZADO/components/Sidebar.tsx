@@ -3,6 +3,7 @@
 import React from 'react';
 import Image from 'next/image';
 import { useTheme } from '@/lib/ThemeContext';
+import { isAdminRole } from '@/lib/auth-crypto';
 import {
   Sidebar as BaseSidebar,
   SidebarHeader,
@@ -44,7 +45,7 @@ interface SidebarProps {
   onSelectScreen: (screen: ScreenId) => void;
   onOpenProfile: () => void;
   onLogout?: () => void;
-  user?: { name: string; username: string } | null;
+  user?: { name: string; username: string; role?: string } | null;
   stats?: {
     totalAlertas: number;
     totalVelocidade: number;
@@ -169,12 +170,13 @@ function CasagrandeUserFooter({
 }: {
   onOpenProfile: () => void;
   onLogout?: () => void;
-  user?: { name: string; username: string } | null;
+  user?: { name: string; username: string; role?: string } | null;
 }) {
   const { collapsed } = useSidebar();
   const { theme } = useTheme();
   const isLight = theme === 'light';
-  const displayName = user?.name || 'Administrador CCO';
+  const isAdmin = isAdminRole(user?.role);
+  const displayName = user?.name || (isAdmin ? 'Administrador CCO' : 'Operador CCO');
   return (
     <div
       className={`flex w-full items-center cursor-pointer group ${
@@ -216,7 +218,7 @@ function CasagrandeUserFooter({
                 isLight ? 'text-[#16a34a]' : 'text-[#34b344]'
               }`}
             >
-              SISTEMA ONLINE
+              {isAdmin ? 'ADMIN • SISTEMA ONLINE' : 'VISUALIZADOR • ONLINE'}
             </div>
           </div>
         )}
@@ -257,6 +259,7 @@ export default function Sidebar({
 }: SidebarProps) {
   const { theme } = useTheme();
   const isLight = theme === 'light';
+  const isAdmin = isAdminRole(user?.role);
 
   const handleItemClick = (id: ScreenId) => {
     onSelectScreen(id);
@@ -265,7 +268,10 @@ export default function Sidebar({
     }
   };
 
-  const navItems = NAV_ITEMS.map((item) => {
+  // RBAC: oculta o Painel Admin (parametrizações/regras/cadastros) para operadores não-admin
+  const navItems = NAV_ITEMS.filter(
+    (item) => item.id !== 'painel-admin-e-parametrizacoes' || isAdmin
+  ).map((item) => {
     if (item.id === 'resumo-geral-e-horarios' && stats?.totalVelocidade) {
       return { ...item, badge: stats.totalVelocidade.toLocaleString('pt-BR') };
     }

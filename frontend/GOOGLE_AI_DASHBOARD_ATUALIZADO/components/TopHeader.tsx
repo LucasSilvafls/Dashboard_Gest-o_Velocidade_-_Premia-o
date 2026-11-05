@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { useTheme } from '@/lib/ThemeContext';
+import { isAdminRole } from '@/lib/auth-crypto';
 
 interface TopHeaderProps {
   isSidebarCollapsed: boolean;
@@ -11,6 +12,11 @@ interface TopHeaderProps {
   onRefreshData?: () => void;
   onOpenUpload?: () => void;
   isRefreshing?: boolean;
+  user?: {
+    name: string;
+    username: string;
+    role?: string;
+  } | null;
   stats?: {
     totalAlertas: number;
     totalVelocidade: number;
@@ -27,9 +33,15 @@ export default function TopHeader({
   onRefreshData,
   onOpenUpload,
   isRefreshing = false,
+  user,
   stats,
 }: TopHeaderProps) {
   const { theme, toggleTheme } = useTheme();
+
+  const isAdmin = isAdminRole(user?.role);
+  const avatarInitial = (user?.name || (isAdmin ? 'Admin' : 'Operador')).trim().charAt(0).toUpperCase();
+  const shortName = user?.name ? user.name.split(' ')[0] : isAdmin ? 'CCO Admin' : 'Operador CCO';
+  const profileBadgeLabel = isAdmin ? `${shortName} (Admin)` : `${shortName} (CCO)`;
 
   const periodoDisplay = stats?.periodo || '26/09 a 25/10/2026';
   const frotaDisplay = `${stats?.totalVeiculos ?? 35} Veículos`;
@@ -126,7 +138,7 @@ export default function TopHeader({
 
       {/* Action Controls com espaçamento responsivo e touch targets */}
       <div className="flex items-center gap-1.5 sm:gap-2.5 ml-2 sm:ml-3 flex-shrink-0">
-        {/* Upload Planilha Button */}
+        {/* Upload Planilha Button (Exclusivo para Administradores) */}
         {onOpenUpload && (
           <button
             type="button"
@@ -185,16 +197,16 @@ export default function TopHeader({
         {/* Profile Button */}
         <button
           className="flex items-center gap-2 pl-1 pr-1.5 sm:pr-2 py-1 rounded-lg bg-[#1c2432] border border-[#283548] hover:border-[#34b344] transition-colors cursor-pointer"
-          title="Perfil CCO"
+          title={`Perfil CCO (${user?.name || shortName})`}
           type="button"
           onClick={onOpenProfile}
           aria-label="Perfil do usuário"
         >
           <div className="w-6 h-6 rounded bg-[#2ca03a] flex items-center justify-center text-white font-bold text-xs">
-            N
+            {avatarInitial}
           </div>
           <span className="text-xs font-semibold text-[#f1f5f9] hidden lg:inline">
-            CCO Admin
+            {profileBadgeLabel}
           </span>
         </button>
       </div>
